@@ -29,6 +29,34 @@ export const GAMES: GameModule[] = [
     icon: '⚫',
     component: lazy(() => import('./gomoku')),
   },
+  {
+    id: 'reversi',
+    name: '黑白棋',
+    description: '夹住翻转，子多者胜（同屏双人）',
+    icon: '⚪',
+    component: lazy(() => import('./reversi')),
+  },
+  {
+    id: 'chinese-checkers',
+    name: '中国跳棋',
+    description: '六角星竞速，连跳直奔对岸（同屏双人）',
+    icon: '🔴',
+    component: lazy(() => import('./chinese-checkers')),
+  },
+  {
+    id: 'xiangqi',
+    name: '中国象棋',
+    description: '楚河汉界，马炮争锋（同屏双人）',
+    icon: '🀄',
+    component: lazy(() => import('./xiangqi')),
+  },
+  {
+    id: 'chess',
+    name: '国际象棋',
+    description: '完整规则：易位·过路兵·升变（同屏双人）',
+    icon: '♟️',
+    component: lazy(() => import('./chess')),
+  },
 ];
 
 export function getGame(id: string): GameModule | null {

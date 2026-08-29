@@ -1,0 +1,147 @@
+/* 国际象棋专属：明暗格棋盘（浅米 / 深灰绿护眼配色）、Unicode 棋子、
+   选中 / 合法落点 / 可吃标记 / 最后一手 / 被将军王格高亮。全局样式见 src/styles.css */
+
+.c-board {
+  --c-light: #ece2cd; /* 浅米 */
+  --c-dark: #718a6d; /* 深灰绿 */
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  grid-template-rows: repeat(8, 1fr);
+  width: min(92vw, 480px);
+  aspect-ratio: 1;
+  margin: 0 auto;
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow:
+    0 10px 40px rgba(31, 36, 48, 0.16),
+    inset 0 0 0 2px rgba(255, 255, 255, 0.18);
+  user-select: none;
+}
+
+.c-cell {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.c-cell.light {
+  background: var(--c-light);
+}
+
+.c-cell.dark {
+  background: var(--c-dark);
+}
+
+.c-cell.clickable {
+  cursor: pointer;
+}
+
+/* ---------- 高亮垫层（垫在棋子下方，不拦截点击） ---------- */
+.c-cell::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* 最后一手起止格：暖金染色 */
+.c-cell.last::before {
+  background: rgba(245, 165, 36, 0.38);
+}
+
+/* 选中格：淡紫染色 + 描边 */
+.c-cell.selected::before {
+  background: rgba(91, 91, 214, 0.28);
+  box-shadow: inset 0 0 0 3px rgba(91, 91, 214, 0.85);
+}
+
+/* 被将军的王格：红色警示脉冲 */
+.c-cell.check::before {
+  background: rgba(191, 49, 38, 0.5);
+  animation: c-danger 1s ease-in-out infinite;
+}
+
+@keyframes c-danger {
+  50% {
+    opacity: 0.45;
+  }
+}
+
+/* ---------- 棋子 ---------- */
+.c-pc {
+  position: relative;
+  z-index: 2;
+  font-size: clamp(24px, 6.2vw, 38px);
+  line-height: 1;
+  transition: transform 0.12s ease;
+}
+
+.c-pc.white {
+  color: #faf8f1;
+  -webkit-text-stroke: 1.2px #434954;
+  text-shadow: 0 1px 2px rgba(31, 36, 48, 0.35);
+}
+
+.c-pc.black {
+  color: #262b33;
+  text-shadow: 0 1px 1px rgba(255, 255, 255, 0.22);
+}
+
+.c-cell.clickable:hover .c-pc {
+  transform: translateY(-1px) scale(1.06);
+}
+
+/* ---------- 合法落点标记 ---------- */
+/* 空格落点：半透明圆点 */
+.c-dot {
+  position: absolute;
+  inset: 37%;
+  border-radius: 50%;
+  background: rgba(31, 36, 48, 0.42);
+  z-index: 2;
+  transition: transform 0.15s ease;
+}
+
+.c-cell.clickable:hover .c-dot {
+  transform: scale(1.35);
+}
+
+/* 可吃子（含吃过路兵）：朱红圆环 */
+.c-ring {
+  position: absolute;
+  inset: 8%;
+  border-radius: 50%;
+  border: 2.5px solid rgba(191, 49, 38, 0.85);
+  z-index: 3;
+  pointer-events: none;
+}
+
+/* ---------- 状态条里的迷你棋子 / 将军提示 ---------- */
+.c-pc.mini {
+  font-size: 17px;
+  vertical-align: -2px;
+}
+
+.c-check {
+  color: #bf3126;
+  animation: c-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes c-pulse {
+  50% {
+    opacity: 0.55;
+  }
+}
+
+/* ---------- 移动端 ---------- */
+@media (max-width: 480px) {
+  .c-board {
+    border-radius: 10px;
+  }
+
+  .c-pc {
+    font-size: clamp(20px, 7.6vw, 30px);
+  }
+}

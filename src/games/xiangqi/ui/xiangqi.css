@@ -1,0 +1,238 @@
+/* 中国象棋专属：木色棋盘、CSS 线条（网格 + 九宫斜线 + 楚河汉界）、
+   圆形棋子与选中/落点/被吃/将军高亮。全局样式见 src/styles.css */
+
+.x-board {
+  --xline: rgba(122, 85, 35, 0.55);
+  --xred: #bf3126;
+  --xink: #2a2a33;
+  position: relative;
+  width: min(92vw, 460px);
+  aspect-ratio: 9 / 10;
+  margin: 0 auto;
+  border-radius: 14px;
+  background: linear-gradient(150deg, #f8eed6 0%, #f1e0ba 55%, #ecd6a6 100%);
+  box-shadow:
+    0 10px 40px rgba(31, 36, 48, 0.14),
+    inset 0 0 0 1px rgba(122, 85, 35, 0.28);
+}
+
+/* 交叉点坐标系：内层即 9×10 交叉点的包围盒（四周留出棋子半径的外扩空间） */
+.x-inner {
+  position: absolute;
+  inset: 5% 5.2%;
+}
+
+/* ---------- 线条层 ---------- */
+.x-lines {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  grid-template-rows: repeat(9, 1fr);
+  border: 2px solid var(--xline);
+}
+
+.x-cell {
+  border-right: 1px solid var(--xline);
+  border-bottom: 1px solid var(--xline);
+}
+
+/* 河界带（第 5 行格线）内纵线断开，仅两侧边线贯通 */
+.x-cell.gap {
+  border-right-color: transparent;
+}
+
+/* 九宫斜线：两组对角渐变画出 × */
+.x-palace {
+  position: absolute;
+  left: 37.5%; /* 3/8 */
+  width: 25%; /* 2/8 */
+  height: 22.2222%; /* 2/9 */
+  pointer-events: none;
+  background:
+    linear-gradient(
+      to top right,
+      transparent calc(50% - 0.6px),
+      var(--xline) 50%,
+      transparent calc(50% + 0.6px)
+    ),
+    linear-gradient(
+      to bottom right,
+      transparent calc(50% - 0.6px),
+      var(--xline) 50%,
+      transparent calc(50% + 0.6px)
+    );
+}
+
+.x-palace-top {
+  top: 0;
+}
+
+.x-palace-bottom {
+  bottom: 0;
+}
+
+/* 楚河汉界 */
+.x-river {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 44.4444%; /* 4/9 */
+  height: 11.1111%; /* 1/9 */
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  pointer-events: none;
+  color: var(--xline);
+  font-size: min(4.8vw, 22px);
+  font-weight: 700;
+  letter-spacing: 0.4em;
+  text-indent: 0.4em;
+  opacity: 0.9;
+}
+
+/* ---------- 交叉点与棋子 ---------- */
+.x-pt {
+  position: absolute;
+  width: 12.5%; /* 1/8 */
+  height: 11.1111%; /* 1/9 */
+  transform: translate(-50%, -50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2;
+}
+
+.x-pt.clickable {
+  cursor: pointer;
+}
+
+/* 上一手标记：淡金圆环（垫在棋子下方） */
+.x-pt.last::before {
+  content: '';
+  position: absolute;
+  inset: 3%;
+  border-radius: 50%;
+  border: 1.5px solid rgba(245, 165, 36, 0.8);
+}
+
+/* 选中标记：旋转的虚线圆环 */
+.x-pt.selected::before {
+  content: '';
+  position: absolute;
+  inset: 3%;
+  border-radius: 50%;
+  border: 1.5px dashed rgba(91, 91, 214, 0.9);
+  animation: x-spin 8s linear infinite;
+}
+
+@keyframes x-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.x-pc {
+  position: relative;
+  z-index: 2;
+  width: 86%;
+  height: 86%;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'KaiTi', 'STKaiti', 'SimSun', serif;
+  font-size: min(5.4vw, 26px);
+  font-weight: 700;
+  line-height: 1;
+  user-select: none;
+  background: radial-gradient(circle at 35% 30%, #fdf7e7, #f3e5c1 62%, #e3cf9d);
+  box-shadow:
+    0 2px 5px rgba(90, 60, 20, 0.35),
+    inset 0 0 0 1px rgba(122, 85, 35, 0.4);
+  transition: transform 0.12s ease;
+}
+
+.x-pc.red {
+  color: var(--xred);
+}
+
+.x-pc.black {
+  color: var(--xink);
+}
+
+.x-pt.clickable:hover .x-pc {
+  transform: translateY(-1px) scale(1.05);
+}
+
+/* 被吃目标：朱红外圈 */
+.x-pc.cap {
+  box-shadow:
+    0 0 0 2.5px rgba(191, 49, 38, 0.8),
+    0 2px 5px rgba(90, 60, 20, 0.35),
+    inset 0 0 0 1px rgba(122, 85, 35, 0.4);
+}
+
+/* 被将军的将/帅：脉冲红圈 */
+.x-pc.checked {
+  box-shadow:
+    0 0 0 3px rgba(191, 49, 38, 0.85),
+    0 2px 5px rgba(90, 60, 20, 0.35),
+    inset 0 0 0 1px rgba(122, 85, 35, 0.4);
+  animation: x-danger 1s ease-in-out infinite;
+}
+
+@keyframes x-danger {
+  50% {
+    box-shadow:
+      0 0 0 1.5px rgba(191, 49, 38, 0.4),
+      0 2px 5px rgba(90, 60, 20, 0.35),
+      inset 0 0 0 1px rgba(122, 85, 35, 0.4);
+  }
+}
+
+/* 空落点：小圆点 */
+.x-dot {
+  position: absolute;
+  width: 30%;
+  height: 30%;
+  border-radius: 50%;
+  background: rgba(91, 91, 214, 0.55);
+  box-shadow: 0 0 0 2px rgba(91, 91, 214, 0.25);
+  z-index: 1;
+  transition: transform 0.15s ease;
+}
+
+.x-pt.clickable:hover .x-dot {
+  transform: scale(1.3);
+}
+
+/* ---------- 状态条里的迷你棋子 ---------- */
+.x-pc.mini {
+  position: static;
+  display: inline-flex;
+  width: 20px;
+  height: 20px;
+  font-size: 12px;
+  vertical-align: -4px;
+  margin-right: 2px;
+}
+
+/* 将军提示 chip */
+.x-check {
+  color: var(--xred);
+  animation: x-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes x-pulse {
+  50% {
+    opacity: 0.55;
+  }
+}
+
+/* ---------- 移动端 ---------- */
+@media (max-width: 480px) {
+  .x-board {
+    border-radius: 12px;
+  }
+}
