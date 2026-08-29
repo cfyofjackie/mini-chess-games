@@ -4,6 +4,8 @@
 
 内置 AI 求解器：随时**提示一步**，或让 AI **自动演示**完整通关路线。
 
+现已升级为**游戏大厅**结构（hash 路由 + 注册表），更多棋类（五子棋、跳棋）按 [docs/PLATFORM.md](./docs/PLATFORM.md) 的路线接入。
+
 ![技术栈](https://img.shields.io/badge/React_18-Vite_5-TypeScript-5b5bd6)
 
 ## 玩法
@@ -27,9 +29,12 @@ npm run preview   # 本地预览构建产物
 
 ```
 src/
-├── engine/     # 纯逻辑：位棋盘、走法规则、评分（可独立测试）
-├── solver/     # DFS 求解器 + Web Worker（提示 / 自动演示）
-└── ui/         # React 界面：棋盘、状态机、工具栏、终局弹窗
+├── games/
+│   ├── registry.ts        # 游戏注册表（大厅与路由的唯一数据源）
+│   └── peg-solitaire/     # 独立钻石：engine/ + solver/ + ui/
+├── hub/                   # 游戏大厅
+├── App.tsx                # hash 路由分发（大厅 / 各游戏）
+└── main.tsx
 ```
 
 架构与设计细节见 [DESIGN.md](./DESIGN.md)；多棋类游戏大厅的规划见 [docs/PLATFORM.md](./docs/PLATFORM.md)。

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
+import './peg-solitaire.css';
 import { pegCount } from '../engine/board';
 import { legalMoves } from '../engine/rules';
 import { grade, Grade } from '../engine/score';
@@ -11,7 +12,7 @@ import { useGame } from './useGame';
 
 type SolveReply = { kind: 'hint' | 'demo'; result: SolveResult };
 
-export default function App() {
+export default function Game() {
   const { state: game, dispatch } = useGame();
   const workerRef = useRef<Worker | null>(null);
 
@@ -79,6 +80,10 @@ export default function App() {
 
   return (
     <div className="app">
+      <nav className="topnav">
+        <a href="#/">← 游戏大厅</a>
+      </nav>
+
       <header className="header">
         <h1>独立钻石</h1>
         <p className="subtitle">Peg Solitaire · 跳过邻子，只留一颗</p>
