@@ -22,6 +22,13 @@ export const GAMES: GameModule[] = [
     icon: '🎯',
     component: lazy(() => import('./peg-solitaire')),
   },
+  {
+    id: 'gomoku',
+    name: '五子棋',
+    description: '黑白对弈，先连五子者胜（同屏双人）',
+    icon: '⚫',
+    component: lazy(() => import('./gomoku')),
+  },
 ];
 
 export function getGame(id: string): GameModule | null {

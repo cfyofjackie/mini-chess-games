@@ -1,0 +1,102 @@
+/* 五子棋专属：棋盘、棋子、标记与高亮。全局样式见 src/styles.css */
+
+.gomoku-board {
+  display: grid;
+  grid-template-columns: repeat(15, 1fr);
+  grid-template-rows: repeat(15, 1fr);
+  width: min(92vw, 560px);
+  aspect-ratio: 1;
+  margin: 0 auto;
+  background: var(--card);
+  padding: 10px;
+  border-radius: 16px;
+  box-shadow: 0 10px 40px rgba(31, 36, 48, 0.08);
+}
+
+.g-cell {
+  position: relative;
+  box-shadow:
+    inset -1px 0 0 rgba(31, 36, 48, 0.09),
+    inset 0 -1px 0 rgba(31, 36, 48, 0.09);
+}
+
+/* 星位（天元与四星） */
+.g-cell.star::after {
+  content: '';
+  position: absolute;
+  inset: 40%;
+  border-radius: 50%;
+  background: rgba(31, 36, 48, 0.35);
+}
+
+.g-cell.clickable {
+  cursor: pointer;
+}
+
+/* 悬停时的落子预览 */
+.g-cell.clickable:hover::before {
+  content: '';
+  position: absolute;
+  inset: 12%;
+  border-radius: 50%;
+  background: rgba(91, 91, 214, 0.2);
+  z-index: 1;
+}
+
+/* 棋子 */
+.g-stone {
+  position: absolute;
+  inset: 9%;
+  border-radius: 50%;
+  display: block;
+  z-index: 2;
+}
+
+.g-stone.black {
+  background: radial-gradient(circle at 34% 30%, #565664, #1c1c26 60%, #000);
+  box-shadow:
+    0 2px 5px rgba(0, 0, 0, 0.35),
+    inset 0 1px 2px rgba(255, 255, 255, 0.25);
+}
+
+.g-stone.white {
+  background: radial-gradient(circle at 34% 30%, #ffffff, #e7e8f0 55%, #c9cbd8);
+  box-shadow:
+    0 2px 5px rgba(31, 36, 48, 0.25),
+    inset 0 0 0 1px rgba(31, 36, 48, 0.08);
+}
+
+/* 最后一手标记：棋子中心的小圆点 */
+.g-stone.last::after {
+  content: '';
+  position: absolute;
+  inset: 34%;
+  border-radius: 50%;
+  background: var(--accent);
+  opacity: 0.9;
+}
+
+/* 获胜连珠：金色描边 */
+.g-stone.win-line {
+  box-shadow:
+    0 0 0 2px var(--gold),
+    0 0 0 5px rgba(245, 165, 36, 0.35);
+}
+
+/* 状态条里的迷你棋子 */
+.g-stone.mini {
+  position: static;
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  vertical-align: -1px;
+  margin-right: 2px;
+}
+
+/* ---------- 移动端 ---------- */
+@media (max-width: 480px) {
+  .gomoku-board {
+    padding: 6px;
+    border-radius: 12px;
+  }
+}
