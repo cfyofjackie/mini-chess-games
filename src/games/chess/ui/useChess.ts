@@ -24,7 +24,9 @@ export type ChessAction =
   | { type: 'tap'; idx: number }
   | { type: 'promote'; piece: Promotion }
   | { type: 'cancelPromotion' }
+  | { type: 'aiMove'; from: number; to: number; promotion?: Promotion }
   | { type: 'undo' }
+  | { type: 'undoToHuman' }
   | { type: 'reset' };
 
 export function chessReducer(s: ChessUiState, action: ChessAction): ChessUiState {
@@ -56,11 +58,27 @@ export function chessReducer(s: ChessUiState, action: ChessAction): ChessUiState
       // makeMove 会对非法升变子同引用拒绝，此处正常传入浮层选择结果
       return { game: makeMove(s.game, from, to, action.piece), selected: -1, pending: null };
     }
+    case 'aiMove': {
+      // AI（黑方）落子：与人类同一 makeMove 通路（升变步由 AI 显式携带升变子）
+      if (s.game.status !== 'playing') return s;
+      return {
+        game: makeMove(s.game, action.from, action.to, action.promotion),
+        selected: -1,
+        pending: null,
+      };
+    }
     case 'cancelPromotion':
       // 取消：回到选子前状态（清除选中与待决），可改走别的步
       return { ...s, selected: -1, pending: null };
     case 'undo':
       return { game: undo(s.game), selected: -1, pending: null };
+    case 'undoToHuman': {
+      // 人机模式悔棋：快照逐级弹出，连 AI 的手一起回退，直到轮到人类（白方）或无可再退。
+      // 否则悔一手落在 AI 回合上，AI 会立刻原样重下，悔棋看起来像没生效。
+      let g = undo(s.game);
+      while (g.history.length > 0 && g.current !== 1) g = undo(g);
+      return { ...s, game: g, selected: -1, pending: null };
+    }
     case 'reset':
       return { game: initialState(), selected: -1, pending: null };
   }
