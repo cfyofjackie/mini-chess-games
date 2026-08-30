@@ -72,13 +72,15 @@ interface BoardProps {
   /** 当前选中格 idx，-1 为未选中 */
   selected: number;
   onTap: (idx: number) => void;
+  /** 教练提示阶梯高亮（二级起点/被吃目标，三级起点+终点）；undefined = 不高亮（教练关闭零 UI 变化） */
+  hint?: { from: number; to: number; level: 1 | 2 | 3; capture: boolean } | null;
 }
 
 export function sideName(p: Player): string {
   return p === 1 ? '白方' : '黑方';
 }
 
-export default function Board({ state, selected, onTap }: BoardProps) {
+export default function Board({ state, selected, onTap, hint }: BoardProps) {
   const playable = state.status === 'playing';
   const targets =
     playable && selected >= 0 ? new Set(legalTargets(state, selected)) : new Set<number>();
@@ -91,6 +93,10 @@ export default function Board({ state, selected, onTap }: BoardProps) {
   // 第九节王邻格徽标：选中王时，邻格中不可用格标注原因（合法落点不标注，见 hints.ts）
   const badges =
     playable && selected >= 0 ? new Map(kingNeighborReasons(state, selected).map((b) => [b.idx, b.reason])) : new Map<number, NeighborReason>();
+  // 第十节提示阶梯：二级高亮起点（吃子加被吃目标），三级高亮起点+终点；一级纯文字不点亮
+  const hintFrom = hint ? hint.from : -1;
+  const hintTo = hint && hint.level === 3 ? hint.to : -1;
+  const hintCap = hint && hint.level === 2 && hint.capture ? hint.to : -1;
 
   // A2/A3：最近一手（人类与 AI 共用）。key 取着法序号（history 长度），
   // 换手 / 悔棋回放都会换 key 重触发动画，且状态回退后不残留任何动画。
@@ -124,6 +130,9 @@ export default function Board({ state, selected, onTap }: BoardProps) {
         isSelected ? 'selected' : '',
         isLast ? 'last' : '',
         i === checkedIdx ? 'check' : '',
+        i === hintFrom ? 'hint-from' : '',
+        i === hintTo ? 'hint-to' : '',
+        i === hintCap ? 'hint-cap' : '',
       ]
         .filter(Boolean)
         .join(' ');

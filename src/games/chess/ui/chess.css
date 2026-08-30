@@ -577,6 +577,123 @@
   color: var(--muted);
 }
 
+/* ---------- 第十节：教练模式 v1（评注条 / 大错拦截卡 / 提示阶梯高亮 / 教学局） ---------- */
+
+/* 提示按钮 / 教练开关：开启时高亮（同难度分段的 active 观感） */
+.c-coach-btn.active,
+.c-coach-btn[aria-pressed='true'] {
+  background: var(--accent);
+  color: #fff;
+  border-color: transparent;
+}
+
+/* 教学局 chip：金底 */
+.c-teaching {
+  color: #a06d12;
+  background: rgba(217, 154, 38, 0.16);
+}
+
+/* 教练评语条：状态条下方，点击展开评估详情 */
+.c-coach-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px;
+  width: min(92vw, 480px);
+  margin: 0 auto 10px;
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--card);
+  box-shadow: 0 1px 2px rgba(31, 36, 48, 0.06);
+  cursor: pointer;
+  font-size: 14px;
+  color: var(--ink);
+  text-align: left;
+}
+
+.c-coach-emoji {
+  font-size: 16px;
+  line-height: 1;
+}
+
+.c-coach-text {
+  font-weight: 600;
+}
+
+.c-coach-detail {
+  flex-basis: 100%;
+  font-size: 12.5px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* 大错拦截卡：棋盘上方小卡片（不遮挡棋盘），重试 / 坚持两按钮 */
+.c-coach-card {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: min(92vw, 480px);
+  margin: 0 auto 10px;
+  padding: 10px 12px;
+  border: 1px solid rgba(191, 49, 38, 0.4);
+  border-left: 4px solid #bf3126;
+  border-radius: 12px;
+  background: var(--card);
+  box-shadow: 0 4px 14px rgba(191, 49, 38, 0.12);
+  animation: c-cardin 0.2s ease-out;
+}
+
+@keyframes c-cardin {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+
+.c-coach-card-main {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.c-coach-card-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: #bf3126;
+}
+
+.c-coach-card-text {
+  font-size: 13.5px;
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.c-coach-card-actions {
+  display: flex;
+  gap: 8px;
+}
+
+/* 提示阶梯高亮：二级起点（青）/ 被吃目标（橙），三级起点+终点（青 → 绿） */
+.c-cell.hint-from::before {
+  background: rgba(38, 132, 150, 0.34);
+  box-shadow: inset 0 0 0 3px rgba(38, 132, 150, 0.85);
+}
+
+.c-cell.hint-to::before {
+  background: rgba(46, 125, 67, 0.34);
+  box-shadow: inset 0 0 0 3px rgba(46, 125, 67, 0.85);
+}
+
+.c-cell.hint-cap::before {
+  background: rgba(217, 122, 38, 0.34);
+  box-shadow: inset 0 0 0 3px rgba(217, 122, 38, 0.85);
+  animation: c-danger 1s ease-in-out infinite;
+}
+
 /* ---------- 移动端 ---------- */
 @media (max-width: 480px) {
   .c-board {

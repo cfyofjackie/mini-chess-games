@@ -12,36 +12,30 @@
 // 评估分统一换算白方视角输出曲线（长度 = 手数 + 1；将死 = ±MATE_SCORE，和棋 = 0）。
 //
 // 不做（规格明确）：URL 分享编码、逐手教练重试、置换表（分析复用 ai.ts 的搜索即无）。
+// 第十节起评级/原因文案抽到 judge.ts（复盘与教练模式共用），此处转出口保持既有 API 不变。
 import {
   B_BISHOP,
-  B_KING,
   B_KNIGHT,
   B_PAWN,
   B_QUEEN,
   B_ROOK,
   W_BISHOP,
-  W_KING,
   W_KNIGHT,
   W_PAWN,
   W_QUEEN,
   W_ROOK,
   algebraic,
   makeMove,
-  sideOf,
   type ChessState,
   type Player,
   type Promotion,
   type Status,
 } from './chess';
-import { chooseMove, MATE_SCORE, MATE_WIN, type AiMove, type AiPosition } from './ai';
+import { chooseMove, MATE_SCORE, type AiMove, type AiPosition } from './ai';
+import { isCapture, judge, type Grade } from './judge';
 
-export type Grade = 'best' | 'good' | 'mistake' | 'blunder';
-
-/**
- * 评级阈值（行棋方视角损失，厘兵）：≤ best 🟢 / ≤ good ⚪ / ≤ mistake 🟡 / 超过 🔴。
- * 兵级损失（约 100）落 🟡，轻子及以上（≥ 320）落 🔴，可测试（规格第八节）。
- */
-export const GRADE_THRESHOLDS = { best: 15, good: 90, mistake: 280 } as const;
+export type { Grade } from './judge';
+export { GRADE_THRESHOLDS } from './judge';
 
 /** 分析默认参数：中等深度 3 + 小节点预算（40 手对局逐局面评估总计秒级；测试可再调小） */
 export const ANALYSIS_DEPTH = 3;
@@ -113,21 +107,6 @@ export interface AnalysisSeed {
 
 // ---------------------------------------------------------------- 辅助（纯函数）
 
-const PIECE_CN: Record<number, string> = {
-  [W_KING]: '王',
-  [W_QUEEN]: '后',
-  [W_ROOK]: '车',
-  [W_BISHOP]: '象',
-  [W_KNIGHT]: '马',
-  [W_PAWN]: '兵',
-  [B_KING]: '王',
-  [B_QUEEN]: '后',
-  [B_ROOK]: '车',
-  [B_BISHOP]: '象',
-  [B_KNIGHT]: '马',
-  [B_PAWN]: '兵',
-};
-
 /** 升变后的棋子编码 → 升变字母（extractMoves 反查用） */
 const PROMO_LETTER: Record<number, Promotion> = {
   [W_QUEEN]: 'q',
@@ -140,99 +119,9 @@ const PROMO_LETTER: Record<number, Promotion> = {
   [B_KNIGHT]: 'n',
 };
 
-/** 损失 → 评级 */
-function gradeOf(loss: number): Grade {
-  if (loss <= GRADE_THRESHOLDS.best) return 'best';
-  if (loss <= GRADE_THRESHOLDS.good) return 'good';
-  if (loss <= GRADE_THRESHOLDS.mistake) return 'mistake';
-  return 'blunder';
-}
-
 /** ChessState → AI 求解入参（结构兼容，共享同一 Int8Array 引用，搜索不改动） */
 function toAiPos(s: ChessState): AiPosition {
   return { board: s.board, current: s.current, castling: s.castling, enPassant: s.enPassant, status: s.status };
-}
-
-/** 着法 m 在局面 st 上吃掉的棋子编码（普通吃子 / 吃过路兵；无吃子返回 0） */
-function capturedPieceOf(st: ChessState, m: AiMove): number {
-  const victim = st.board[m.to];
-  if (victim !== 0) return victim;
-  const piece = st.board[m.from];
-  if ((piece === W_PAWN || piece === B_PAWN) && m.to === st.enPassant && m.from % 8 !== m.to % 8) {
-    return st.board[m.to + (piece === W_PAWN ? 8 : -8)]; // 被吃兵在走子兵原行、目标列
-  }
-  return 0;
-}
-
-interface JudgeInput {
-  /** 相对首选的损失（行棋方视角，厘兵） */
-  loss: number;
-  /** 本方最佳分（行棋方视角） */
-  bestScore: number;
-  /** 玩家着法价值（行棋方视角） */
-  playerValue: number;
-  /** 引擎首选（可能为 null：终局局面） */
-  best: AiMove | null;
-  /** 对手最佳回应（下一局面的搜索结果；下一局面终局时为 null） */
-  reply: AiMove | null;
-  /** 该手走完的局面（终局特判 / 回应吃子判定用） */
-  next: ChessState;
-  capture: boolean;
-  movedFrom: number;
-  movedTo: number;
-}
-
-/** 规则化原因 + 评级：将死类特判优先，其次丢子（对手最佳回应直接吃子），再按损失分档 */
-function judge(input: JudgeInput): { grade: Grade; reason: string } {
-  const { loss, bestScore, playerValue, best, reply, next, capture, movedFrom, movedTo } = input;
-  // 走完即达成将杀（或进入必胜将杀路径）
-  if (playerValue >= MATE_WIN) return { grade: 'best', reason: '将死得手，胜局已定' };
-  // 漏杀：本有强制将杀却未走（规格：漏杀属大错）
-  if (bestScore >= MATE_WIN) {
-    const k = Math.max(1, Math.ceil((MATE_SCORE - bestScore) / 2));
-    return { grade: 'blunder', reason: `错过绝杀：有 ${k} 步将杀未走` };
-  }
-  // 送杀：走完送对方强制将杀
-  if (playerValue <= -MATE_WIN) {
-    const k = Math.max(1, Math.ceil((MATE_SCORE + playerValue) / 2));
-    return { grade: 'blunder', reason: `送杀：${k} 步内被将死` };
-  }
-  const grade = gradeOf(loss);
-  // 终局特判：逼和 / 子力不足和棋
-  if (next.status === 'draw') {
-    if (next.reason === 'stalemate') {
-      return {
-        grade,
-        reason: loss > GRADE_THRESHOLDS.good ? '逼和：对方无子可动，胜势化为和棋' : '逼和：成功守和',
-      };
-    }
-    return { grade, reason: '和棋：双方子力不足' };
-  }
-  // 丢子：对手最佳回应直接吃子且损失明显（兵级 🟡 / 轻子大子级 🔴 由阈值定级）
-  if (reply && loss > GRADE_THRESHOLDS.good) {
-    const lost = capturedPieceOf(next, reply);
-    if (lost !== 0) {
-      const attacker = next.board[reply.from];
-      const who =
-        attacker !== 0
-          ? `${sideOf(attacker) === 1 ? '白' : '黑'}${PIECE_CN[attacker] ?? '子'}`
-          : sideOf(lost) === 1 ? '白方' : '黑方';
-      return { grade, reason: `丢${PIECE_CN[lost] ?? '子'}：被${who}吃` };
-    }
-  }
-  // 换子亏 / 一般损失
-  if (capture && loss > GRADE_THRESHOLDS.good) {
-    return { grade, reason: `换子亏：损失约 ${(loss / 100).toFixed(1)} 兵` };
-  }
-  if (loss > GRADE_THRESHOLDS.mistake) return { grade, reason: '大错：局面大幅恶化' };
-  if (loss > GRADE_THRESHOLDS.good) return { grade, reason: '失误：局面明显变差' };
-  if (grade === 'best') {
-    return {
-      grade,
-      reason: best && best.from === movedFrom && best.to === movedTo ? '与引擎首选一致' : '与首选几乎等价，平稳',
-    };
-  }
-  return { grade, reason: '平稳：小幅损失' };
 }
 
 // ---------------------------------------------------------------- 对外 API
@@ -347,10 +236,7 @@ export function analyzeGame(
     const playerValue = next.status !== 'playing' ? scores[i + 1] * sign : -scores[i + 1];
     const loss = Math.max(0, scores[i] - playerValue);
     const piece = before.board[m.from];
-    const isPawn = piece === W_PAWN || piece === B_PAWN;
-    const capture =
-      before.board[m.to] !== 0 ||
-      (isPawn && m.to === before.enPassant && m.from % 8 !== m.to % 8);
+    const capture = isCapture(before, m.from, m.to);
     const { grade, reason } = judge({
       loss,
       bestScore: scores[i],
