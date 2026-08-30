@@ -1,5 +1,8 @@
-// 国际象棋棋盘：8×8 明暗格（白在下），Unicode 棋子；
-// 选中 / 合法落点（空格圆点、可吃子含吃过路兵红环）/ 最后一手 / 被将军王格均有高亮标记。
+// 国际象棋棋盘：8×8 明暗格（白在下），Unicode 棋子（两色均实心字形，白/黑由 CSS 上色区分，B1）；
+// 选中 / 合法落点（空格圆点、可吃子含吃过路兵红环）/ 最后一手 / 被将军王格均有高亮标记；
+// A2 落子滑动：落点棋子带 --dx/--dy 位移的滑入动画（人类与 AI 落子共用）；
+// A3 被吃淡出：被吃棋子以幽灵元素在原格缩小淡出；两者均以着法序号作 key，换手即重触发。
+import type { CSSProperties } from 'react';
 import {
   B_BISHOP,
   B_KING,
@@ -19,15 +22,19 @@ import {
   type ChessState,
   type Player,
 } from '../engine/chess';
+import { lastMoveInfo } from './moveText';
 
-/** Unicode 棋子：白 ♔♕♖♗♘♙ / 黑 ♚♛♜♝♞♟ */
+/**
+ * Unicode 实心棋子字形（♚♛♜♝♞♟）：白方渲染为实心白 + 深描边、黑方实心近黑 + 浅描边（B1），
+ * 明暗两种格子上均一眼可辨；颜色与描边见 chess.css 的 .c-pc.white / .c-pc.black。
+ */
 const GLYPHS: Record<number, string> = {
-  [W_KING]: '♔',
-  [W_QUEEN]: '♕',
-  [W_ROOK]: '♖',
-  [W_BISHOP]: '♗',
-  [W_KNIGHT]: '♘',
-  [W_PAWN]: '♙',
+  [W_KING]: '♚',
+  [W_QUEEN]: '♛',
+  [W_ROOK]: '♜',
+  [W_BISHOP]: '♝',
+  [W_KNIGHT]: '♞',
+  [W_PAWN]: '♟',
   [B_KING]: '♚',
   [B_QUEEN]: '♛',
   [B_ROOK]: '♜',
@@ -74,6 +81,15 @@ export default function Board({ state, selected, onTap }: BoardProps) {
     ? state.board.indexOf(state.current === 1 ? W_KING : B_KING)
     : -1;
 
+  // A2/A3：最近一手（人类与 AI 共用）。key 取着法序号（history 长度），
+  // 换手 / 悔棋回放都会换 key 重触发动画，且状态回退后不残留任何动画。
+  const seq = state.history.length;
+  const last = lastMoveInfo(state);
+  // 落点棋子滑入位移：以自身尺寸（=格子）为单位的百分比
+  const dx = last ? `${((last.from % 8) - (last.to % 8)) * 100}%` : '0%';
+  const dy = last ? `${((Math.floor(last.from / 8)) - Math.floor(last.to / 8)) * 100}%` : '0%';
+  const ghost = last?.captured ?? null;
+
   const cells = [];
   for (let r = 0; r < 8; r++) {
     for (let c = 0; c < 8; c++) {
@@ -86,6 +102,8 @@ export default function Board({ state, selected, onTap }: BoardProps) {
       const isLast = i === state.lastFrom || i === state.lastTo;
       const canPick = playable && piece !== 0 && sideOf(piece) === state.current;
       const clickable = playable && (canPick || isTarget);
+      const isSlideTo = last !== null && i === last.to;
+      const slotStyle = isSlideTo ? ({ '--dx': dx, '--dy': dy } as CSSProperties) : undefined;
 
       const cls = [
         'c-cell',
@@ -109,8 +127,23 @@ export default function Board({ state, selected, onTap }: BoardProps) {
           }`}
         >
           {piece !== 0 && (
-            <span className={`c-pc ${sideOf(piece) === 1 ? 'white' : 'black'}`}>
+            <span
+              key={isSlideTo ? `m${seq}` : 'pc'}
+              className={`c-pc ${sideOf(piece) === 1 ? 'white' : 'black'}${
+                isSlideTo ? ' slide' : ''
+              }`}
+              style={slotStyle}
+            >
               {GLYPHS[piece]}
+            </span>
+          )}
+          {ghost !== null && i === ghost.idx && (
+            <span
+              key={`ghost-${seq}`}
+              className={`c-pc c-ghost ${sideOf(ghost.piece) === 1 ? 'white' : 'black'}`}
+              aria-hidden="true"
+            >
+              {GLYPHS[ghost.piece]}
             </span>
           )}
           {isTarget && !willCapture && <span className="c-dot" aria-hidden="true" />}

@@ -1,5 +1,6 @@
-/* 国际象棋专属：明暗格棋盘（浅米 / 深灰绿护眼配色）、Unicode 棋子、
-   选中 / 合法落点 / 可吃标记 / 最后一手 / 被将军王格高亮。全局样式见 src/styles.css */
+/* 国际象棋专属：明暗格棋盘（浅米 / 深灰绿护眼配色）、Unicode 实心棋子（白实心白+深描边 /
+   黑实心近黑+浅描边，B1）、选中 / 合法落点 / 可吃标记 / 最后一手 / 被将军王格高亮、
+   落子滑入（A2）与被吃子幽灵淡出（A3）。全局样式见 src/styles.css */
 
 .c-board {
   --c-light: #ece2cd; /* 浅米 */
@@ -78,19 +79,66 @@
   transition: transform 0.12s ease;
 }
 
+/* 棋盘格内的棋子铺满整格（位移百分比 = 整格步进，A2 滑动动画依赖） */
+.c-cell .c-pc {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* B1 棋子上色：白方实心白 + 深描边，黑方实心近黑 + 浅描边，明暗格均一眼可辨。
+   paint-order 让描边垫在填充之下，字形细节不被描边侵蚀 */
 .c-pc.white {
-  color: #faf8f1;
-  -webkit-text-stroke: 1.2px #434954;
+  color: #fdfdfa;
+  -webkit-text-stroke: 1.2px #3d434f;
+  paint-order: stroke fill;
   text-shadow: 0 1px 2px rgba(31, 36, 48, 0.35);
 }
 
 .c-pc.black {
-  color: #262b33;
-  text-shadow: 0 1px 1px rgba(255, 255, 255, 0.22);
+  color: #1c1c26;
+  -webkit-text-stroke: 1px rgba(250, 248, 241, 0.85);
+  paint-order: stroke fill;
+  text-shadow: 0 1px 2px rgba(31, 36, 48, 0.25);
 }
 
 .c-cell.clickable:hover .c-pc {
   transform: translateY(-1px) scale(1.06);
+}
+
+/* ---------- A2 落子滑动：落点棋子从起点格滑入（人类与 AI 共用，250ms 缓动收尾） ---------- */
+.c-pc.slide {
+  animation: c-slide 0.25s cubic-bezier(0.2, 0.7, 0.3, 1);
+}
+
+@keyframes c-slide {
+  from {
+    transform: translate(var(--dx, 0%), var(--dy, 0%));
+  }
+  to {
+    transform: translate(0, 0);
+  }
+}
+
+/* ---------- A3 被吃棋子幽灵：在原格缩小 + 淡出，300ms 后消失 ---------- */
+/* 位于滑入棋子之上，随滑动一同呈现"吃子"过程；pointer-events 不拦截落点点击 */
+.c-cell .c-ghost {
+  z-index: 3;
+  pointer-events: none;
+  animation: c-vanish 0.3s ease-out forwards;
+}
+
+@keyframes c-vanish {
+  from {
+    opacity: 1;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(0.3);
+  }
 }
 
 /* ---------- 合法落点标记 ---------- */
@@ -118,10 +166,16 @@
   pointer-events: none;
 }
 
-/* ---------- 状态条里的迷你棋子 / 将军提示 ---------- */
+/* ---------- 状态条里的迷你棋子 / 将军提示 / 上一手 ---------- */
 .c-pc.mini {
   font-size: 17px;
   vertical-align: -2px;
+  -webkit-text-stroke-width: 1px; /* 小字号下描边收细，避免糊成一团 */
+}
+
+/* A5 上一手 chip：正文色，与 muted 的其他 chip 区分 */
+.c-lastmove {
+  color: var(--ink);
 }
 
 /* ---------- 升变选择浮层（复用全局 .overlay/.modal） ---------- */

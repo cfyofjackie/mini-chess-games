@@ -1,14 +1,21 @@
 // 国际象棋游戏页（阶段二）：人类执白 vs AI 执黑，三档难度可选（默认中等）。
 // AI 走子走同一个 reducer 的 aiMove 动作（悔棋快照 / 最后一手高亮 / 升变语义全部复用）；
 // AI 思考在 Web Worker 中进行，棋盘锁定并显示"AI 思考中"；
-// 过期回复（重开 / 悔棋 / 换难度）按请求 id 丢弃。
+// 过期回复（重开 / 悔棋 / 换难度）按请求 id 丢弃；
+// A1 落子停顿：Worker 回复到达后延迟 AI_LAG_MS 再应用（"AI 想好了，正要落子"的节奏），
+//   重开 / 悔棋 / 换难度会同步取消挂起的延迟与在途请求，过期着法不落地；
+// A5 上一手 chip：文案由 ui/moveText.ts 纯函数生成（你/AI 前缀在状态条拼接）。
 import './chess.css';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Board, { sideName } from './Board';
 import { useChess } from './useChess';
+import { lastMoveInfo, moveText } from './moveText';
 import type { AiReply, AiRequest } from './chess.ai.worker';
 import type { Difficulty } from '../engine/ai';
-import type { Promotion } from '../engine/chess';
+import { sideOf, type Promotion } from '../engine/chess';
+
+/** A1：Worker 回复到达后到实际落子之间的固定停顿（毫秒，规格书定值） */
+const AI_LAG_MS = 600;
 
 const DIFFICULTY_OPTIONS: ReadonlyArray<{ value: Difficulty; label: string }> = [
   { value: 'easy', label: '简单' },
@@ -22,21 +29,32 @@ const REASON_TEXT: Record<string, string> = {
   insufficient: '子力不足，双方均无法将杀',
 };
 
-/** 升变选项（规格顺序：后/车/象/马），按行棋方取白/黑字形 */
-const PROMOTION_CHOICES: ReadonlyArray<{ piece: Promotion; white: string; black: string; name: string }> = [
-  { piece: 'q', white: '♕', black: '♛', name: '后' },
-  { piece: 'r', white: '♖', black: '♜', name: '车' },
-  { piece: 'b', white: '♗', black: '♝', name: '象' },
-  { piece: 'n', white: '♘', black: '♞', name: '马' },
+/** 升变选项（规格顺序：后/车/象/马）。两色均用实心字形，白/黑观感由 .c-pc 上色区分（B1） */
+const PROMOTION_CHOICES: ReadonlyArray<{ piece: Promotion; glyph: string; name: string }> = [
+  { piece: 'q', glyph: '♛', name: '后' },
+  { piece: 'r', glyph: '♜', name: '车' },
+  { piece: 'b', glyph: '♝', name: '象' },
+  { piece: 'n', glyph: '♞', name: '马' },
 ];
 
 export default function Game() {
   const { state, dispatch } = useChess();
   const [difficulty, setDifficulty] = useState<Difficulty>('medium');
   const [thinking, setThinking] = useState(false);
+  const [applying, setApplying] = useState(false); // A1：Worker 已回复，停顿等待落子
   const workerRef = useRef<Worker | null>(null);
   const seqRef = useRef(0); // 请求自增 id
   const pendingRef = useRef(0); // 当前等待中的请求 id；0 = 无等待
+  const applyTimerRef = useRef<number | null>(null); // A1：挂起落子延迟的定时器
+
+  // A1：取消挂起的落子延迟（重开 / 悔棋 / 换难度 / 卸载时调用，过期着法不落地）
+  const cancelAiApply = useCallback(() => {
+    if (applyTimerRef.current !== null) {
+      clearTimeout(applyTimerRef.current);
+      applyTimerRef.current = null;
+    }
+    setApplying(false);
+  }, []);
 
   const { game } = state;
   const over = game.status !== 'playing';
@@ -47,6 +65,12 @@ export default function Game() {
       : '和棋'
     : '';
 
+  // A5：最近一手文案 chip——"你/AI："前缀 + moveText 纯函数生成的着法文案，随新着法替换
+  const lastInfo = lastMoveInfo(game);
+  const lastChip = lastInfo
+    ? `${sideOf(lastInfo.piece) === 1 ? '你' : 'AI'}：${moveText(lastInfo, sideOf(lastInfo.piece))}`
+    : '';
+
   // Worker 生命周期（与 reversi / gomoku / peg-solitaire solver 相同的接入方式）
   useEffect(() => {
     const w = new Worker(new URL('./chess.ai.worker.ts', import.meta.url), { type: 'module' });
@@ -55,21 +79,30 @@ export default function Game() {
       if (pendingRef.current !== id) return; // 过期回复（已重开 / 已悔棋 / 已换难度）直接丢弃
       pendingRef.current = 0;
       setThinking(false);
-      // AI 与人类共用同一 makeMove 通路：最后一手高亮、悔棋快照、终局判定天然复用
-      if (from >= 0) dispatch({ type: 'aiMove', from, to, promotion });
+      if (from < 0) return; // 无合法步（防御；对局中不会发生）
+      // A1 停顿：不立即落子，固定延迟后再应用，玩家可感知"AI 想好了，正要落子"
+      setApplying(true);
+      applyTimerRef.current = window.setTimeout(() => {
+        applyTimerRef.current = null;
+        setApplying(false);
+        // AI 与人类共用同一 makeMove 通路：最后一手高亮、悔棋快照、终局判定天然复用
+        dispatch({ type: 'aiMove', from, to, promotion });
+      }, AI_LAG_MS);
     };
     workerRef.current = w;
     return () => {
+      cancelAiApply(); // 卸载时作废挂起延迟
       w.terminate();
       workerRef.current = null;
     };
-  }, [dispatch]);
+  }, [dispatch, cancelAiApply]);
 
   // AI 回合调度：轮到黑方且对局进行中时向 Worker 请求求解。
   // 依赖只含影响求解的局面要素（board 引用随每次走子更新）；
   // 换难度会以新 id 重新请求，旧回复按 id 丢弃。
   useEffect(() => {
     if (game.status !== 'playing' || game.current !== 2) return;
+    cancelAiApply(); // 新请求前作废挂起延迟（换难度重发场景）
     const id = ++seqRef.current;
     pendingRef.current = id;
     setThinking(true);
@@ -82,18 +115,23 @@ export default function Game() {
       castling: game.castling,
       enPassant: game.enPassant,
     } satisfies AiRequest);
-  }, [game.status, game.current, game.board, game.castling, game.enPassant, difficulty]);
+    // 依赖变化（重开 / 悔棋 / 换难度）即作废挂起延迟，过期着法不落地
+    return cancelAiApply;
+  }, [game.status, game.current, game.board, game.castling, game.enPassant, difficulty, cancelAiApply]);
 
   const handleUndo = useCallback(() => {
     if (thinking || game.history.length === 0) return;
+    pendingRef.current = 0; // 作废在途请求（防御：思考中按钮已禁用）
+    cancelAiApply(); // A1：悔棋取消挂起延迟，过期着法不落地
     dispatch({ type: 'undoToHuman' }); // 连 AI 的手一起回退，回到人类回合
-  }, [thinking, game.history.length, dispatch]);
+  }, [thinking, game.history.length, cancelAiApply, dispatch]);
 
   const handleReset = useCallback(() => {
     pendingRef.current = 0; // 作废在途请求
+    cancelAiApply(); // A1：重开取消挂起延迟
     setThinking(false);
     dispatch({ type: 'reset' });
-  }, [dispatch]);
+  }, [cancelAiApply, dispatch]);
 
   const handleTap = useCallback(
     (idx: number) => {
@@ -117,19 +155,19 @@ export default function Game() {
         <span className="chip">
           第 <b>{game.history.length}</b> 手
         </span>
+        {lastChip && <span className="chip c-lastmove">{lastChip}</span>}
         {over ? (
           <span className="chip">{result}</span>
         ) : (
           <>
             <span className="chip">
               轮到{' '}
-              <span className={`c-pc mini ${game.current === 1 ? 'white' : 'black'}`}>
-                {game.current === 1 ? '♔' : '♚'}
-              </span>{' '}
+              <span className={`c-pc mini ${game.current === 1 ? 'white' : 'black'}`}>♚</span>{' '}
               <b>{game.current === 1 ? '你' : 'AI'}</b>
             </span>
             {game.check && <span className="chip c-check">将军！</span>}
             {thinking && <span className="chip thinking">AI 思考中</span>}
+            {applying && <span className="chip thinking">AI 落子中</span>}
           </>
         )}
       </div>
@@ -196,7 +234,9 @@ export default function Game() {
       {!over && state.pending && (
         <div className="overlay">
           <div className="modal c-promo" role="dialog" aria-modal="true" aria-label="选择升变棋子">
-            <div className="emoji">{game.current === 1 ? '♕' : '♛'}</div>
+            <div className="emoji" aria-hidden="true">
+              ♛
+            </div>
             <div className="grade">兵升变</div>
             <p className="detail">{sideName(game.current)} 的兵抵达底线，请选择升变棋子</p>
             <div className="c-promo-choices">
@@ -207,7 +247,7 @@ export default function Game() {
                   onClick={() => dispatch({ type: 'promote', piece: choice.piece })}
                 >
                   <span className={`c-pc ${game.current === 1 ? 'white' : 'black'}`} aria-hidden="true">
-                    {game.current === 1 ? choice.white : choice.black}
+                    {choice.glyph}
                   </span>
                   {choice.name}
                 </button>
