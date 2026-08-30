@@ -256,6 +256,294 @@
   cursor: default;
 }
 
+/* ---------- 复盘报告 v1（第八节）：报告页 / 时间线 / 评估曲线 / 进度条 ---------- */
+
+.c-rv {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  width: min(96vw, 980px);
+  margin: 0 auto;
+}
+
+.c-rv-top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.c-rv-title {
+  margin: 0 auto 0 4px;
+  font-size: 20px;
+}
+
+.c-rv-card {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 12px 14px;
+  box-shadow: 0 1px 2px rgba(31, 36, 48, 0.06);
+}
+
+.c-rv-cardtitle {
+  margin: 0 0 8px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+/* 分析进度条（Worker 逐局面回报 x/N） */
+.c-rv-track {
+  height: 10px;
+  border-radius: 999px;
+  background: var(--hole);
+  overflow: hidden;
+}
+
+.c-rv-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: var(--accent);
+  transition: width 0.25s ease;
+}
+
+.c-rv-progtext {
+  margin: 10px 0 0;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+/* 评估曲线（内联 SVG，白方视角：上白下黑） */
+.c-rv-curve {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.c-rv-curve-white {
+  fill: #f4ecd9;
+}
+
+.c-rv-curve-black {
+  fill: #39413f;
+}
+
+.c-rv-curve-mid {
+  stroke: rgba(128, 128, 128, 0.65);
+  stroke-width: 1;
+  stroke-dasharray: 4 4;
+}
+
+.c-rv-curve-line {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.c-rv-cursor {
+  stroke: var(--gold);
+  stroke-width: 1.5;
+  stroke-dasharray: 3 3;
+}
+
+.c-rv-pt {
+  fill: var(--muted);
+  stroke: rgba(255, 255, 255, 0.85);
+  stroke-width: 1;
+  cursor: pointer;
+}
+
+.c-rv-pt.g-best {
+  fill: #2e7d43;
+}
+
+.c-rv-pt.g-good {
+  fill: #9aa5b1;
+}
+
+.c-rv-pt.g-mistake {
+  fill: #d99a26;
+}
+
+.c-rv-pt.g-blunder {
+  fill: #bf3126;
+}
+
+.c-rv-pt.sel {
+  stroke: var(--gold);
+  stroke-width: 2;
+}
+
+/* 报告主网格：棋盘 + 详情 | 着法时间线 */
+.c-rv-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 480px) minmax(280px, 1fr);
+  gap: 14px;
+  align-items: start;
+}
+
+.c-rv-left {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+}
+
+.c-rv-grid .c-board {
+  width: 100%;
+}
+
+.c-rv-dhead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.c-rv-dtitle {
+  font-size: 15px;
+}
+
+.c-rv-grade {
+  font-size: 13px;
+  font-weight: 600;
+  padding: 2px 10px;
+  border-radius: 999px;
+}
+
+.c-rv-grade.g-best {
+  background: rgba(46, 125, 67, 0.14);
+  color: #2e7d43;
+}
+
+.c-rv-grade.g-good {
+  background: rgba(122, 129, 148, 0.14);
+  color: #6a7285;
+}
+
+.c-rv-grade.g-mistake {
+  background: rgba(217, 154, 38, 0.16);
+  color: #a06d12;
+}
+
+.c-rv-grade.g-blunder {
+  background: rgba(191, 49, 38, 0.13);
+  color: #bf3126;
+}
+
+.c-rv-why {
+  margin: 8px 0 0;
+  font-size: 14px;
+  color: var(--ink);
+}
+
+.c-rv-meta {
+  margin: 6px 0 0;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.c-rv-sep {
+  margin: 0 6px;
+}
+
+/* 着法时间线：按评级着色（左侧色条 + 圆点），点击跳转该局面 */
+.c-rv-list {
+  list-style: none;
+  margin: 0;
+  padding: 6px;
+  max-height: 480px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.c-rv-row {
+  display: grid;
+  grid-template-columns: 36px minmax(96px, auto) 22px minmax(0, 1fr);
+  align-items: baseline;
+  gap: 6px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  border-left: 3px solid transparent;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.c-rv-row:hover {
+  background: var(--hole);
+}
+
+.c-rv-row.sel {
+  background: var(--hole);
+  box-shadow: inset 0 0 0 1px var(--line);
+}
+
+.c-rv-row.g-best {
+  border-left-color: #2e7d43;
+}
+
+.c-rv-row.g-good {
+  border-left-color: #c4cbd6;
+}
+
+.c-rv-row.g-mistake {
+  border-left-color: #d99a26;
+}
+
+.c-rv-row.g-blunder {
+  border-left-color: #bf3126;
+}
+
+.c-rv-no {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.c-rv-mv {
+  color: var(--ink);
+  white-space: nowrap;
+}
+
+.c-rv-dot {
+  font-size: 11px;
+  text-align: center;
+}
+
+.c-rv-why {
+  margin: 0;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+
+/* 历史复盘列表 */
+.c-rv-saved ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.c-rv-saved li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.c-rv-slabel {
+  font-size: 13px;
+  color: var(--muted);
+}
+
 /* ---------- 移动端 ---------- */
 @media (max-width: 480px) {
   .c-board {
@@ -268,5 +556,13 @@
 
   .c-seg-btn {
     padding: 8px 12px;
+  }
+
+  .c-rv-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .c-rv-list {
+    max-height: 320px;
   }
 }

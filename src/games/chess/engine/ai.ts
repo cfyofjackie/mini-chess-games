@@ -63,10 +63,19 @@ export interface AiResult {
   score: number;
 }
 
+/** 求解覆盖项（可选，全部缺省 = 原预设行为）：复盘分析器（engine/analysis.ts）用
+    小节点预算 + 中等深度控制逐局面评估的总时长；不影响对局 AI 的默认参数。 */
+export interface ChooseOptions {
+  /** 主搜索节点预算（默认 NODE_BUDGET） */
+  nodeBudget?: number;
+  /** 主搜索深度：medium 默认 3；hard 为迭代加深上限（默认 5） */
+  depth?: number;
+}
+
 /** 将杀分值基准：减去剩余步数，保证 AI 偏好更快将杀 */
 export const MATE_SCORE = 1_000_000;
-/** ≥ 此值即已在搜索内找到将杀路径（100 步以内），迭代加深可提前停止 */
-const MATE_WIN = MATE_SCORE - 256;
+/** ≥ 此值即已在搜索内找到将杀路径（100 步以内），迭代加深可提前停止（复盘分析器同用此阈值） */
+export const MATE_WIN = MATE_SCORE - 256;
 
 const MEDIUM_DEPTH = 3;
 const HARD_DEPTH = 5;
@@ -944,7 +953,7 @@ function loadPos(pos: AiPosition): void {
  * 三档难度统一入口。确定性：同一局面 + 同一难度 ⇒ 同一步、同一节点数、同一分值
  * （无随机、无跨调用状态；墙钟兜底仅在节点预算远未触发的异常慢环境下生效）。
  */
-export function chooseMove(pos: AiPosition, difficulty: Difficulty): AiResult {
+export function chooseMove(pos: AiPosition, difficulty: Difficulty, opts: ChooseOptions = {}): AiResult {
   if (pos.status !== 'playing') return { move: null, nodes: 0, depth: 0, score: 0 };
   loadPos(pos);
   const rootN = genMoves(false);
@@ -969,27 +978,34 @@ export function chooseMove(pos: AiPosition, difficulty: Difficulty): AiResult {
     return { move: decode(bestM), nodes: rootMoves.length, depth: 1, score: bestS };
   }
 
-  CTX = { nodes: 0, nodeBudget: NODE_BUDGET, deadline: Date.now() + DEADLINE_MS, aborted: false };
+  CTX = {
+    nodes: 0,
+    nodeBudget: opts.nodeBudget ?? NODE_BUDGET,
+    deadline: Date.now() + DEADLINE_MS,
+    aborted: false,
+  };
   USE_HEUR = difficulty === 'hard';
 
   if (difficulty === 'medium') {
+    const mediumDepth = opts.depth ?? MEDIUM_DEPTH;
     const rootMoves = Array.from(MOVE_BUF[0].subarray(0, rootN));
-    const r = searchRoot(MEDIUM_DEPTH, rootMoves);
+    const r = searchRoot(mediumDepth, rootMoves);
     const m = r.move >= 0 ? r.move : rootMoves[0];
     return {
       move: decode(m),
       nodes: CTX.nodes,
-      depth: r.completed ? MEDIUM_DEPTH : 0,
+      depth: r.completed ? mediumDepth : 0,
       score: r.score === -INF ? 0 : r.score,
     };
   }
 
   // hard：迭代加深至深度 5（预算内）；每层完成即持有当前最优，随时可返回
+  const hardDepth = opts.depth ?? HARD_DEPTH;
   const rootMoves = Array.from(MOVE_BUF[0].subarray(0, rootN));
   let bestMove = rootMoves[0];
   let bestScore = 0;
   let completed = 0;
-  for (let d = 1; d <= HARD_DEPTH; d++) {
+  for (let d = 1; d <= hardDepth; d++) {
     const r = searchRoot(d, rootMoves);
     if (CTX.aborted) break; // 本层未完成：沿用上一层最优
     bestMove = r.move;

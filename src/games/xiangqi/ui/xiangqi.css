@@ -230,9 +230,53 @@
   }
 }
 
+/* ---------- 阶段二：AI 对手 ---------- */
+
+/* 难度分段选择（工具栏内，样式与 chess 的 .c-seg 同构） */
+.x-seg {
+  display: inline-flex;
+  align-items: center;
+  gap: 0;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--card);
+  box-shadow: 0 1px 2px rgba(31, 36, 48, 0.06);
+  overflow: hidden;
+}
+
+.x-seg-btn {
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  padding: 9px 16px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.x-seg-btn + .x-seg-btn {
+  border-left: 1px solid var(--line);
+}
+
+.x-seg-btn:hover:not(.active) {
+  transform: none;
+  color: var(--accent);
+  border-color: transparent;
+  border-left-color: var(--line);
+}
+
+.x-seg-btn.active {
+  background: var(--accent);
+  color: #fff;
+  cursor: default;
+}
+
 /* ---------- 移动端 ---------- */
 @media (max-width: 480px) {
   .x-board {
     border-radius: 12px;
+  }
+
+  .x-seg-btn {
+    padding: 8px 12px;
   }
 }

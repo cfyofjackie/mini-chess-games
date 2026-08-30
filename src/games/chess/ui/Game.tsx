@@ -5,14 +5,20 @@
 // A1 落子停顿：Worker 回复到达后延迟 AI_LAG_MS 再应用（"AI 想好了，正要落子"的节奏），
 //   重开 / 悔棋 / 换难度会同步取消挂起的延迟与在途请求，过期着法不落地；
 // A5 上一手 chip：文案由 ui/moveText.ts 纯函数生成（你/AI 前缀在状态条拼接）。
+// 复盘报告 v1（第八节）：对局视图 / 报告视图切换；入口 = 终局弹窗与工具栏"复盘本局"
+//   （对局中亦可用，分析截至当前局面）；分析在 Worker 里逐局面跑并回报进度，
+//   完成后存 localStorage（chess-review- 前缀，保留最近 10 局），历史列表可重看。
 import './chess.css';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Board, { sideName } from './Board';
+import Report from './Report';
+import { buildPositions, listReviews, saveReview, type SavedReview } from './reviewStore';
 import { useChess } from './useChess';
 import { lastMoveInfo, moveText } from './moveText';
 import type { AiReply, AiRequest } from './chess.ai.worker';
 import type { Difficulty } from '../engine/ai';
-import { sideOf, type Promotion } from '../engine/chess';
+import { extractMoves, type AnalysisMoveInput, type AnalysisReport } from '../engine/analysis';
+import { sideOf, type ChessState, type Promotion } from '../engine/chess';
 
 /** A1：Worker 回复到达后到实际落子之间的固定停顿（毫秒，规格书定值） */
 const AI_LAG_MS = 600;
@@ -42,10 +48,19 @@ export default function Game() {
   const [difficulty, setDifficulty] = useState<Difficulty>('medium');
   const [thinking, setThinking] = useState(false);
   const [applying, setApplying] = useState(false); // A1：Worker 已回复，停顿等待落子
+  // 复盘报告 v1：对局 / 报告双视图与分析会话状态
+  const [view, setView] = useState<'play' | 'review'>('play');
+  const [report, setReport] = useState<AnalysisReport | null>(null);
+  const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
+  const [positions, setPositions] = useState<ChessState[]>([]); // 报告视图的局面序列（分析时冻结）
+  const [saved, setSaved] = useState<SavedReview[]>(() => listReviews());
   const workerRef = useRef<Worker | null>(null);
   const seqRef = useRef(0); // 请求自增 id
   const pendingRef = useRef(0); // 当前等待中的请求 id；0 = 无等待
   const applyTimerRef = useRef<number | null>(null); // A1：挂起落子延迟的定时器
+  const analysisIdRef = useRef(0); // 在途复盘分析请求 id；0 = 无
+  // 本次复盘的数据源（初始局面 + 着法），报告完成后随报告一并入库
+  const reviewSourceRef = useRef<{ initial: ChessState; moves: AnalysisMoveInput[] } | null>(null);
 
   // A1：取消挂起的落子延迟（重开 / 悔棋 / 换难度 / 卸载时调用，过期着法不落地）
   const cancelAiApply = useCallback(() => {
@@ -75,19 +90,46 @@ export default function Game() {
   useEffect(() => {
     const w = new Worker(new URL('./chess.ai.worker.ts', import.meta.url), { type: 'module' });
     w.onmessage = (e: MessageEvent<AiReply>) => {
-      const { id, from, to, promotion } = e.data;
-      if (pendingRef.current !== id) return; // 过期回复（已重开 / 已悔棋 / 已换难度）直接丢弃
-      pendingRef.current = 0;
-      setThinking(false);
-      if (from < 0) return; // 无合法步（防御；对局中不会发生）
-      // A1 停顿：不立即落子，固定延迟后再应用，玩家可感知"AI 想好了，正要落子"
-      setApplying(true);
-      applyTimerRef.current = window.setTimeout(() => {
-        applyTimerRef.current = null;
-        setApplying(false);
-        // AI 与人类共用同一 makeMove 通路：最后一手高亮、悔棋快照、终局判定天然复用
-        dispatch({ type: 'aiMove', from, to, promotion });
-      }, AI_LAG_MS);
+      const msg = e.data;
+      if (msg.type === 'result') {
+        if (pendingRef.current !== msg.id) return; // 过期回复（已重开 / 已悔棋 / 已换难度）直接丢弃
+        pendingRef.current = 0;
+        setThinking(false);
+        if (msg.from < 0) return; // 无合法步（防御；对局中不会发生）
+        // A1 停顿：不立即落子，固定延迟后再应用，玩家可感知"AI 想好了，正要落子"
+        setApplying(true);
+        applyTimerRef.current = window.setTimeout(() => {
+          applyTimerRef.current = null;
+          setApplying(false);
+          // AI 与人类共用同一 makeMove 通路：最后一手高亮、悔棋快照、终局判定天然复用
+          dispatch({ type: 'aiMove', from: msg.from, to: msg.to, promotion: msg.promotion });
+        }, AI_LAG_MS);
+        return;
+      }
+      if (msg.type === 'progress') {
+        if (analysisIdRef.current !== msg.id) return; // 过期分析（已重发 / 已退出重看）直接丢弃
+        setProgress({ done: msg.done, total: msg.total });
+        return;
+      }
+      // msg.type === 'report'：复盘完成 → 展示 + 本地保存（chess-review- 前缀，保留最近 10 局）
+      if (analysisIdRef.current !== msg.id) return;
+      analysisIdRef.current = 0;
+      setProgress(null);
+      setReport(msg.report);
+      const src = reviewSourceRef.current;
+      if (src) {
+        saveReview({
+          report: msg.report,
+          initial: {
+            board: Array.from(src.initial.board),
+            current: src.initial.current,
+            castling: src.initial.castling,
+            enPassant: src.initial.enPassant,
+          },
+          moves: src.moves,
+        });
+        setSaved(listReviews());
+      }
     };
     workerRef.current = w;
     return () => {
@@ -139,6 +181,72 @@ export default function Game() {
     },
     [humanTurn, dispatch],
   );
+
+  // 复盘本局（对局中亦可用，分析截至当前局面）：history[0] 即初始局面，history[i]
+  // 即第 i 手走完的快照——局面序列直接冻结为 [...history, game]，随后在 Worker 里
+  // 逐局面分析（进度回报 x/N），完成后展示报告并存入 localStorage。
+  const startReview = useCallback(() => {
+    const w = workerRef.current;
+    if (!w || game.history.length === 0) return;
+    const initial = game.history[0];
+    const moves = extractMoves(game);
+    reviewSourceRef.current = { initial, moves };
+    setPositions([...game.history, game]);
+    setReport(null);
+    setProgress({ done: 0, total: moves.length + 1 });
+    setView('review');
+    const id = ++seqRef.current;
+    analysisIdRef.current = id;
+    w.postMessage({
+      type: 'analyze',
+      id,
+      initial: {
+        board: Array.from(initial.board),
+        current: initial.current,
+        castling: initial.castling,
+        enPassant: initial.enPassant,
+      },
+      moves,
+    } satisfies AiRequest);
+  }, [game]);
+
+  // 重看历史复盘：按保存的初始局面 + 着法重建局面序列（零重新分析）
+  const loadSaved = useCallback(
+    (id: string) => {
+      const rec = saved.find((s) => s.id === id);
+      if (!rec) return;
+      analysisIdRef.current = 0; // 作废在途分析（若有）
+      setReport(rec.report);
+      setPositions(buildPositions(rec));
+      setProgress(null);
+      setView('review');
+    },
+    [saved],
+  );
+
+  if (view === 'review') {
+    return (
+      <div className="app">
+        <nav className="topnav">
+          <a href="#/">← 游戏大厅</a>
+        </nav>
+
+        <header className="header">
+          <h1>国际象棋</h1>
+          <p className="subtitle">Chess · 复盘报告 · 本地逐局面分析，找出胜负手</p>
+        </header>
+
+        <Report
+          report={report}
+          progress={progress}
+          positions={positions}
+          saved={saved}
+          onBack={() => setView('play')}
+          onLoadSaved={loadSaved}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="app">
@@ -201,6 +309,13 @@ export default function Game() {
         >
           重新开始
         </button>
+        <button
+          className="btn primary"
+          onClick={startReview}
+          disabled={game.history.length === 0}
+        >
+          复盘本局
+        </button>
       </div>
 
       <p className="rules">
@@ -209,6 +324,8 @@ export default function Game() {
         点击落点即完成走子；兵抵达底线弹出浮层自选升变棋子，取消可改走别的步。
         王车易位需权利未失、路径无子且不被将军；对方兵刚走两格时可用吃过路兵，机会仅一手。
         AI 思考时棋盘暂时锁定，悔棋会连 AI 的应手一起回退。
+        对局中或结束后点「复盘本局」，AI 在本地逐局面复评每一手，给出 🟢⚪🟡🔴 评级、
+        原因与评估曲线，最近 10 局可随时重看。
       </p>
 
       {over && (
@@ -220,6 +337,9 @@ export default function Game() {
               {REASON_TEXT[game.reason] ?? ''} · 共 <b>{game.history.length}</b> 手
             </p>
             <div className="modal-actions">
+              <button className="btn" onClick={startReview}>
+                复盘本局
+              </button>
               <button className="btn" onClick={handleUndo}>
                 悔棋一步
               </button>
