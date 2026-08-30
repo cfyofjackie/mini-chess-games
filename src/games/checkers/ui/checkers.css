@@ -1,0 +1,155 @@
+/* 国际跳棋专属：8×8 棋盘（仅深色格可交互）、双色圆片棋子、王冠、
+   选中/可达落点/上一手/必吃子标记。全局样式见 src/styles.css */
+
+.ck-board {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  grid-template-rows: repeat(8, 1fr);
+  width: min(92vw, 520px);
+  aspect-ratio: 1;
+  margin: 0 auto;
+  padding: 10px;
+  border-radius: 16px;
+  background: var(--card);
+  box-shadow: 0 10px 40px rgba(31, 36, 48, 0.08);
+}
+
+.ck-cell {
+  position: relative;
+}
+
+/* 浅色格（不可行棋）与深色格（唯一可交互点） */
+.ck-cell.light {
+  background: #f0e3c5;
+}
+
+.ck-cell.dark {
+  background: #8a5a36;
+}
+
+.ck-cell.clickable {
+  cursor: pointer;
+}
+
+/* 上一手标记：格子内圈淡金描边 */
+.ck-cell.last::before {
+  content: '';
+  position: absolute;
+  inset: 7%;
+  border: 1.5px solid rgba(245, 165, 36, 0.75);
+  border-radius: 12%;
+  z-index: 1;
+  pointer-events: none;
+}
+
+/* 选中格：金描边 */
+.ck-cell.selected {
+  box-shadow: inset 0 0 0 2px var(--gold);
+}
+
+/* ---------- 棋子 ---------- */
+.ck-pc {
+  position: absolute;
+  inset: 9%;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2;
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+}
+
+.ck-pc.red {
+  background: radial-gradient(circle at 34% 30%, #f4919b, #e5484d 55%, #c2333d);
+  box-shadow:
+    0 2px 5px rgba(0, 0, 0, 0.4),
+    inset 0 1px 2px rgba(255, 255, 255, 0.4);
+}
+
+.ck-pc.white {
+  background: radial-gradient(circle at 34% 30%, #ffffff, #eceef5 55%, #cfd2df);
+  box-shadow:
+    0 2px 5px rgba(31, 36, 48, 0.35),
+    inset 0 0 0 1px rgba(31, 36, 48, 0.08);
+}
+
+/* 强制吃子：可吃子呼吸金环 */
+.ck-cell.must .ck-pc {
+  animation: ck-must 1.2s ease-in-out infinite;
+}
+
+@keyframes ck-must {
+  50% {
+    box-shadow:
+      0 0 0 2.5px var(--gold),
+      0 0 0 7px rgba(245, 165, 36, 0.25),
+      0 2px 5px rgba(0, 0, 0, 0.4);
+  }
+}
+
+/* 选中棋子：金环 + 微抬 */
+.ck-pc.picked {
+  box-shadow:
+    0 0 0 2.5px var(--gold),
+    0 0 0 6px rgba(245, 165, 36, 0.3),
+    0 3px 6px rgba(0, 0, 0, 0.4);
+  transform: translateY(-5%);
+}
+
+/* 王冠标记 */
+.ck-crown {
+  font-size: clamp(11px, 3vw, 17px);
+  line-height: 1;
+  color: #8a5a00;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.4);
+}
+
+/* 可达落点（连跳链尾）：中心强调圆点 */
+.ck-aim {
+  position: absolute;
+  inset: 34%;
+  border-radius: 50%;
+  background: rgba(91, 91, 214, 0.65);
+  box-shadow: 0 0 0 2px rgba(91, 91, 214, 0.25);
+  z-index: 3;
+  animation: ck-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes ck-pulse {
+  50% {
+    transform: scale(1.2);
+    opacity: 0.75;
+  }
+}
+
+.ck-cell.clickable:hover .ck-pc {
+  transform: scale(1.06);
+}
+
+.ck-cell.clickable:hover .ck-aim {
+  transform: scale(1.25);
+}
+
+/* ---------- 状态条里的迷你棋子 ---------- */
+.ck-pc.mini {
+  position: static;
+  display: inline-block;
+  inset: auto;
+  width: 12px;
+  height: 12px;
+  vertical-align: -1px;
+  margin-right: 2px;
+}
+
+/* 强制吃子提示 chip */
+.chip.ck-must-chip {
+  color: var(--accent);
+}
+
+/* ---------- 移动端 ---------- */
+@media (max-width: 480px) {
+  .ck-board {
+    padding: 6px;
+    border-radius: 12px;
+  }
+}

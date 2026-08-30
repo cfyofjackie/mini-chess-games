@@ -119,9 +119,72 @@
   margin-right: 2px;
 }
 
+/* ---------- 阶段二：AI 对手 ---------- */
+
+/* 难度分段选择（工具栏内），样式与 reversi 的 r-seg 同构 */
+.cc-seg {
+  display: inline-flex;
+  align-items: center;
+  gap: 0;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--card);
+  box-shadow: 0 1px 2px rgba(31, 36, 48, 0.06);
+  overflow: hidden;
+}
+
+.cc-seg-btn {
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  padding: 9px 16px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.cc-seg-btn + .cc-seg-btn {
+  border-left: 1px solid var(--line);
+}
+
+.cc-seg-btn:hover:not(.active) {
+  transform: none;
+  color: var(--accent);
+  border-color: transparent;
+  border-left-color: var(--line);
+}
+
+.cc-seg-btn.active {
+  background: var(--accent);
+  color: #fff;
+  cursor: default;
+}
+
+/* "AI 思考中" chip：尾点呼吸 */
+.chip.thinking::after {
+  content: '···';
+  display: inline-block;
+  margin-left: 2px;
+  letter-spacing: 1px;
+  animation: cc-blink 1.2s ease-in-out infinite;
+}
+
+@keyframes cc-blink {
+  0%,
+  100% {
+    opacity: 0.2;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
 /* ---------- 移动端 ---------- */
 @media (max-width: 480px) {
   .cc-board {
     border-radius: 12px;
+  }
+
+  .cc-seg-btn {
+    padding: 8px 12px;
   }
 }

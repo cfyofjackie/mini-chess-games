@@ -57,6 +57,13 @@ export const GAMES: GameModule[] = [
     icon: '♟️',
     component: lazy(() => import('./chess')),
   },
+  {
+    id: 'checkers',
+    name: '国际跳棋',
+    description: '有吃必吃，连跳成王（同屏双人）',
+    icon: '👑',
+    component: lazy(() => import('./checkers')),
+  },
 ];
 
 export function getGame(id: string): GameModule | null {

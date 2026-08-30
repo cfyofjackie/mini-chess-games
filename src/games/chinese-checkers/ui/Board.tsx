@@ -14,6 +14,8 @@ interface BoardProps {
   state: CCState;
   /** 当前选中棋子 idx，-1 为未选中 */
   selected: number;
+  /** 锁盘（AI 回合 / AI 思考中）：不响应任何点击 */
+  locked?: boolean;
   onTap: (idx: number) => void;
 }
 
@@ -24,8 +26,8 @@ export function sideName(p: Player): string {
 const P1_HOME = new Set(P1_CAMP);
 const P2_HOME = new Set(P2_CAMP);
 
-export default function Board({ state, selected, onTap }: BoardProps) {
-  const playable = state.status === 'playing';
+export default function Board({ state, selected, locked = false, onTap }: BoardProps) {
+  const playable = state.status === 'playing' && !locked;
   const targets =
     playable && selected >= 0 ? new Set(movesFrom(state, selected)) : new Set<number>();
 

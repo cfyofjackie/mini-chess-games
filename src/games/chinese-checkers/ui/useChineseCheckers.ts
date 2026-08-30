@@ -1,4 +1,5 @@
 // 中国跳棋状态机：引擎之上薄封装一层 reducer（选中态与点击提示为纯 UI 状态）
+// 阶段二：人机对局（人类执 1 靛蓝先行，AI 执 2 玫红），undoToHuman 供悔棋回退到人类回合
 import { useReducer } from 'react';
 import { CCState, initialState, movesFrom, place, undo } from '../engine/chinese-checkers';
 
@@ -13,6 +14,7 @@ export interface UIState {
 export type CCAction =
   | { type: 'tap'; idx: number }
   | { type: 'undo' }
+  | { type: 'undoToHuman' }
   | { type: 'reset' }
   | { type: 'clearHint' };
 
@@ -41,6 +43,13 @@ export function uiReducer(state: UIState, action: CCAction): UIState {
     }
     case 'undo':
       return { game: undo(state.game), selected: -1, hint: '' };
+    case 'undoToHuman': {
+      // 人机模式悔棋：快照逐级弹出，连 AI 的手一起回退，直到轮到人类（1 方）或无可再退。
+      // 否则悔一手落在 AI 回合上，AI 会立刻原样重下，悔棋看起来像没生效。
+      let s = undo(state.game);
+      while (s.history.length > 0 && s.current !== 1) s = undo(s);
+      return { game: s, selected: -1, hint: '' };
+    }
     case 'reset':
       return { game: initialState(), selected: -1, hint: '' };
     case 'clearHint':
