@@ -23,6 +23,7 @@ import {
   type Player,
 } from '../engine/chess';
 import { lastMoveInfo } from './moveText';
+import { kingNeighborReasons, type NeighborReason } from './hints';
 
 /**
  * Unicode 实心棋子字形（♚♛♜♝♞♟）：白方渲染为实心白 + 深描边、黑方实心近黑 + 浅描边（B1），
@@ -59,6 +60,13 @@ const NAMES: Record<number, string> = {
   [B_PAWN]: '兵',
 };
 
+/** 王邻格徽标文案（规格书第九节：己方占位=己 / 空格受攻=攻 / 敌子受保护=守） */
+const BADGE_TEXT: Record<NeighborReason, string> = {
+  own: '己',
+  attacked: '攻',
+  defended: '守',
+};
+
 interface BoardProps {
   state: ChessState;
   /** 当前选中格 idx，-1 为未选中 */
@@ -80,6 +88,9 @@ export default function Board({ state, selected, onTap }: BoardProps) {
   const checkedIdx = state.check
     ? state.board.indexOf(state.current === 1 ? W_KING : B_KING)
     : -1;
+  // 第九节王邻格徽标：选中王时，邻格中不可用格标注原因（合法落点不标注，见 hints.ts）
+  const badges =
+    playable && selected >= 0 ? new Map(kingNeighborReasons(state, selected).map((b) => [b.idx, b.reason])) : new Map<number, NeighborReason>();
 
   // A2/A3：最近一手（人类与 AI 共用）。key 取着法序号（history 长度），
   // 换手 / 悔棋回放都会换 key 重触发动画，且状态回退后不残留任何动画。
@@ -104,6 +115,7 @@ export default function Board({ state, selected, onTap }: BoardProps) {
       const clickable = playable && (canPick || isTarget);
       const isSlideTo = last !== null && i === last.to;
       const slotStyle = isSlideTo ? ({ '--dx': dx, '--dy': dy } as CSSProperties) : undefined;
+      const badge = badges.get(i);
 
       const cls = [
         'c-cell',
@@ -148,6 +160,11 @@ export default function Board({ state, selected, onTap }: BoardProps) {
           )}
           {isTarget && !willCapture && <span className="c-dot" aria-hidden="true" />}
           {willCapture && <span className="c-ring" aria-hidden="true" />}
+          {badge && (
+            <span className={`c-badge c-badge-${badge}`} aria-hidden="true">
+              {BADGE_TEXT[badge]}
+            </span>
+          )}
         </div>,
       );
     }

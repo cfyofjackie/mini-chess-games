@@ -15,6 +15,7 @@ import Report from './Report';
 import { buildPositions, listReviews, saveReview, type SavedReview } from './reviewStore';
 import { useChess } from './useChess';
 import { lastMoveInfo, moveText } from './moveText';
+import { toastText } from './hints';
 import type { AiReply, AiRequest } from './chess.ai.worker';
 import type { Difficulty } from '../engine/ai';
 import { extractMoves, type AnalysisMoveInput, type AnalysisReport } from '../engine/analysis';
@@ -22,6 +23,9 @@ import { sideOf, type ChessState, type Promotion } from '../engine/chess';
 
 /** A1：Worker 回复到达后到实际落子之间的固定停顿（毫秒，规格书定值） */
 const AI_LAG_MS = 600;
+
+/** 第九节：提示浮条自动消失时长（毫秒，同 reversi / gomoku 模式） */
+const TOAST_MS = 2600;
 
 const DIFFICULTY_OPTIONS: ReadonlyArray<{ value: Difficulty; label: string }> = [
   { value: 'easy', label: '简单' },
@@ -177,10 +181,17 @@ export default function Game() {
 
   const handleTap = useCallback(
     (idx: number) => {
-      if (humanTurn) dispatch({ type: 'tap', idx }); // AI 思考中锁盘：非人类回合不响应点击
+      if (humanTurn) dispatch({ type: "tap", idx }); // AI 思考中锁盘：非人类回合不响应点击
     },
     [humanTurn, dispatch],
   );
+
+  // 第九节提示浮条：2.6s 后自动消失（每次新提示重置计时；纯 UI 状态，不触引擎）
+  useEffect(() => {
+    if (!state.toast) return;
+    const t = window.setTimeout(() => dispatch({ type: 'clearToast' }), TOAST_MS);
+    return () => window.clearTimeout(t);
+  }, [state.toast, dispatch]);
 
   // 复盘本局（对局中亦可用，分析截至当前局面）：history[0] 即初始局面，history[i]
   // 即第 i 手走完的快照——局面序列直接冻结为 [...history, game]，随后在 Worker 里
@@ -321,12 +332,15 @@ export default function Game() {
       <p className="rules">
         你执白先行，AI 执黑，可在工具栏切换 AI 难度（简单＝只看一步的贪心；中等＝三层搜索＋吃子延伸；
         困难＝更深迭代搜索＋启发排序）。点击己方棋子后，合法落点以圆点标出（可吃之子与吃过路兵带红圈），
-        点击落点即完成走子；兵抵达底线弹出浮层自选升变棋子，取消可改走别的步。
+        点击落点即完成走子；没有落点时会提示原因（被牵制 / 无路可走），点对方的子会提示当前轮次；
+        选中王时，走不过去的邻格会标注"己 / 攻 / 守"。兵抵达底线弹出浮层自选升变棋子，取消可改走别的步。
         王车易位需权利未失、路径无子且不被将军；对方兵刚走两格时可用吃过路兵，机会仅一手。
         AI 思考时棋盘暂时锁定，悔棋会连 AI 的应手一起回退。
         对局中或结束后点「复盘本局」，AI 在本地逐局面复评每一手，给出 🟢⚪🟡🔴 评级、
         原因与评估曲线，最近 10 局可随时重看。
       </p>
+
+      {state.toast && <div className="toast">{toastText(state.toast)}</div>}
 
       {over && (
         <div className="overlay">

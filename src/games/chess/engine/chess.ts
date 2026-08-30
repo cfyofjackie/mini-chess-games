@@ -195,8 +195,11 @@ export function position(pieces: Array<[string, string]>, opts: PositionOptions 
 
 // ---------- 攻击检测 ----------
 
-/** (tr, tc) 是否被 by 一方攻击（覆盖兵、马、王、车/后、象/后的全部攻击方式） */
-function isAttacked(board: Int8Array, tr: number, tc: number, by: Player): boolean {
+/**
+ * (tr, tc) 是否被 by 一方攻击（覆盖兵、马、王、车/后、象/后的全部攻击方式）。
+ * 规格书第九节：提示层（ui/hints.ts）需要攻击检测的既有能力，此处导出既有实现（行为零改动）。
+ */
+export function isAttacked(board: Int8Array, tr: number, tc: number, by: Player): boolean {
   const pawn = by === 1 ? W_PAWN : B_PAWN;
   const knight = by === 1 ? W_KNIGHT : B_KNIGHT;
   const bishop = by === 1 ? W_BISHOP : B_BISHOP;

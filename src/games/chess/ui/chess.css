@@ -1,6 +1,7 @@
 /* 国际象棋专属：明暗格棋盘（浅米 / 深灰绿护眼配色）、Unicode 实心棋子（白实心白+深描边 /
    黑实心近黑+浅描边，B1）、选中 / 合法落点 / 可吃标记 / 最后一手 / 被将军王格高亮、
-   落子滑入（A2）与被吃子幽灵淡出（A3）。全局样式见 src/styles.css */
+   落子滑入（A2）与被吃子幽灵淡出（A3）、王邻格解释徽标（第九节 .c-badge-*）。
+   全局样式见 src/styles.css */
 
 .c-board {
   --c-light: #ece2cd; /* 浅米 */
@@ -164,6 +165,38 @@
   border: 2.5px solid rgba(191, 49, 38, 0.85);
   z-index: 3;
   pointer-events: none;
+}
+
+/* ---------- 第九节：王邻格徽标（选中王时标注不可用邻格的原因） ---------- */
+/* 小号字 + 半透明底，垫在格子角落，不拦截点击（徽标只出现在非合法落点格上） */
+.c-badge {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  z-index: 4;
+  pointer-events: none;
+  font-size: clamp(9px, 2.4vw, 12px);
+  line-height: 1;
+  font-weight: 600;
+  padding: 2px 4px;
+  border-radius: 6px;
+  color: #fff;
+  box-shadow: 0 1px 2px rgba(31, 36, 48, 0.25);
+}
+
+/* 己：己方棋子占位 —— 中性灰紫 */
+.c-badge-own {
+  background: rgba(90, 96, 122, 0.62);
+}
+
+/* 攻：空格但走过去送将 —— 朱红 */
+.c-badge-attacked {
+  background: rgba(191, 49, 38, 0.66);
+}
+
+/* 守：敌子受保护（吃完被反吃送将）—— 橙金 */
+.c-badge-defended {
+  background: rgba(217, 154, 38, 0.68);
 }
 
 /* ---------- 状态条里的迷你棋子 / 将军提示 / 上一手 ---------- */
@@ -552,6 +585,13 @@
 
   .c-pc {
     font-size: clamp(20px, 7.6vw, 30px);
+  }
+
+  /* 王邻格徽标：小屏收窄内边距并压低字号下限，避免盖住棋子 */
+  .c-badge {
+    font-size: 9px;
+    padding: 1px 3px;
+    border-radius: 4px;
   }
 
   .c-seg-btn {
