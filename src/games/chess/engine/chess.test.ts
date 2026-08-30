@@ -19,11 +19,14 @@ import {
   position,
   pseudoTargets,
   undo,
+  W_BISHOP,
   W_KING,
+  W_KNIGHT,
   W_PAWN,
   W_QUEEN,
   W_ROOK,
   type ChessState,
+  type Promotion,
 } from './chess';
 
 const S = (sq: string) => fromAlgebraic(sq);
@@ -406,28 +409,103 @@ describe('吃过路兵', () => {
   });
 });
 
-describe('升变', () => {
-  it('白兵到底线自动变后，并以后的方式参与走法', () => {
+describe('升变自选', () => {
+  it('升变步落点照常出现在合法落点中（UI 落点高亮依据）', () => {
     const s = position([['e7', 'P'], ['h1', 'K'], ['a5', 'k']]);
-    const s1 = play(s, ['e7', 'e8']);
+    expectSet(legalTargets(s, S('e7')), [S('e8')]);
+    // 吃子升变同样显示（长腿斜吃抵达底线）：d7 前进 d8、斜吃 c8
+    const cap = position([['d7', 'P'], ['c8', 'r'], ['h1', 'K'], ['a5', 'k']]);
+    expectSet(legalTargets(cap, S('d7')), [S('c8'), S('d8')]);
+  });
+
+  it('升变为后：升变后按后的走法行动', () => {
+    const s = position([['e7', 'P'], ['h1', 'K'], ['a5', 'k']]);
+    const s1 = makeMove(s, S('e7'), S('e8'), 'q');
     expect(s1.board[S('e8')]).toBe(W_QUEEN);
+    expect(s1.board[S('e7')]).toBe(0);
     expect(s1.status).toBe('playing');
-    const s2 = play(s1, ['a5', 'a6'], ['e8', 'h5']); // 黑让一手后，升变后的后斜线机动
+    const s2 = play(s1, ['a5', 'a6'], ['e8', 'h5']); // 黑让一手后，后斜线机动
     expect(s2.board[S('h5')]).toBe(W_QUEEN);
     expect(s2.board[S('e8')]).toBe(0);
   });
 
-  it('升变可通过吃子完成（吃底角车自动变后）', () => {
-    const s = position([['d7', 'P'], ['c8', 'r'], ['h1', 'K'], ['a5', 'k']]);
-    const done = play(s, ['d7', 'c8']);
-    expect(done.board[S('c8')]).toBe(W_QUEEN);
-    expect(done.board[S('d7')]).toBe(0);
+  it('升变为车：直线机动，不能斜走', () => {
+    const s = position([['e7', 'P'], ['h1', 'K'], ['a5', 'k']]);
+    const s1 = makeMove(s, S('e7'), S('e8'), 'r');
+    expect(s1.board[S('e8')]).toBe(W_ROOK);
+    const s2 = play(s1, ['a5', 'a6'], ['e8', 'e1']);
+    expect(s2.board[S('e1')]).toBe(W_ROOK);
+    expect(makeMove(s2, S('e1'), S('h4'))).toBe(s2); // 车不可斜走（e1-h4 为斜线）
   });
 
-  it('黑兵升变自动变黑后', () => {
+  it('升变为象：斜线机动，不能直走', () => {
+    // 黑方多一枚兵，避免 K+B vs K 直接触发子力不足判和而无法续走
+    const s = position([['e7', 'P'], ['h1', 'K'], ['a5', 'k'], ['a7', 'p']]);
+    const s1 = makeMove(s, S('e7'), S('e8'), 'b');
+    expect(s1.board[S('e8')]).toBe(W_BISHOP);
+    expect(s1.status).toBe('playing');
+    const s2 = play(s1, ['a5', 'a6'], ['e8', 'h5']);
+    expect(s2.board[S('h5')]).toBe(W_BISHOP);
+    expect(makeMove(s2, S('h5'), S('h7'))).toBe(s2); // 象不可直走
+  });
+
+  it('升变为马：日字机动，不能滑行', () => {
+    // 黑方多一枚兵，避免 K+N vs K 直接触发子力不足判和而无法续走
+    const s = position([['e7', 'P'], ['h1', 'K'], ['a5', 'k'], ['a7', 'p']]);
+    const s1 = makeMove(s, S('e7'), S('e8'), 'n');
+    expect(s1.board[S('e8')]).toBe(W_KNIGHT);
+    expect(s1.status).toBe('playing');
+    const s2 = play(s1, ['a5', 'a6'], ['e8', 'f6']);
+    expect(s2.board[S('f6')]).toBe(W_KNIGHT);
+    expect(makeMove(s2, S('f6'), S('f4'))).toBe(s2); // 马不可滑行
+  });
+
+  it('升变可通过吃子完成（吃底角车），须显式传升变子', () => {
+    const s = position([['d7', 'P'], ['c8', 'r'], ['h1', 'K'], ['a5', 'k']]);
+    expect(makeMove(s, S('d7'), S('c8'))).toBe(s); // 吃子升变同样必须显式传参
+    const done = makeMove(s, S('d7'), S('c8'), 'q');
+    expect(done.board[S('c8')]).toBe(W_QUEEN);
+    expect(done.board[S('d7')]).toBe(0);
+    expect(done.status).toBe('playing');
+  });
+
+  it('黑兵升变须显式传参（自动变后已移除）', () => {
     const s = position([['d2', 'p'], ['h1', 'K'], ['a8', 'k']], { current: 2 });
-    const done = play(s, ['d2', 'd1']);
+    expect(makeMove(s, S('d2'), S('d1'))).toBe(s); // 未传 → 拒绝，棋盘保持原样
+    expect(s.board[S('d2')]).toBe(B_PAWN); // 兵未动
+    const done = makeMove(s, S('d2'), S('d1'), 'q');
     expect(done.board[S('d1')]).toBe(B_QUEEN);
+  });
+
+  it('升变步未传升变参数 → 拒绝（同引用返回）', () => {
+    const s = position([['e7', 'P'], ['h1', 'K'], ['a5', 'k']]);
+    expect(makeMove(s, S('e7'), S('e8'))).toBe(s);
+    expect(s.board[S('e7')]).toBe(W_PAWN);
+    expect(s.board[S('e8')]).toBe(0);
+  });
+
+  it('升变参数非法值 → 拒绝（王/兵/大写/未知值/null 均不合法）', () => {
+    const s = position([['e7', 'P'], ['h1', 'K'], ['a5', 'k']]);
+    const bad = (v: unknown) => v as unknown as Promotion;
+    expect(makeMove(s, S('e7'), S('e8'), bad('k'))).toBe(s); // 王不可选
+    expect(makeMove(s, S('e7'), S('e8'), bad('p'))).toBe(s); // 兵不可选
+    expect(makeMove(s, S('e7'), S('e8'), bad('Q'))).toBe(s); // 大写非法（区分大小写）
+    expect(makeMove(s, S('e7'), S('e8'), bad('x'))).toBe(s); // 未知值
+    expect(makeMove(s, S('e7'), S('e8'), bad(''))).toBe(s);
+    expect(makeMove(s, S('e7'), S('e8'), bad(null))).toBe(s);
+  });
+
+  it('非升变步传入升变参数被忽略', () => {
+    const s = position([['e4', 'P'], ['h1', 'K'], ['a5', 'k']]);
+    const done = makeMove(s, S('e4'), S('e5'), 'q');
+    expect(done.board[S('e5')]).toBe(W_PAWN);
+  });
+
+  it('升变后悔棋：复原为升变前的兵', () => {
+    const s = position([['e7', 'P'], ['h1', 'K'], ['a5', 'k']]);
+    const s1 = makeMove(s, S('e7'), S('e8'), 'n');
+    expect(undo(s1)).toBe(s);
+    expect(s.board[S('e7')]).toBe(W_PAWN);
   });
 });
 

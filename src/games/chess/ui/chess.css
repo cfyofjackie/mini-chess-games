@@ -124,6 +124,33 @@
   vertical-align: -2px;
 }
 
+/* ---------- 升变选择浮层（复用全局 .overlay/.modal） ---------- */
+.c-promo .c-promo-choices {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+.c-promo-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  padding: 10px 4px;
+  font-size: 13px;
+  border-radius: 14px;
+}
+
+.c-promo-btn .c-pc {
+  font-size: 34px;
+  line-height: 1;
+}
+
+.c-promo-btn:hover:not(:disabled) .c-pc {
+  transform: translateY(-2px) scale(1.1);
+}
+
 .c-check {
   color: #bf3126;
   animation: c-pulse 1.2s ease-in-out infinite;

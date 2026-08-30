@@ -3,9 +3,10 @@
 // - 合法步 = 伪合法步 − 走完后己王受攻（含吃过路兵/王车易位的完整落子效果）；
 // - 王车易位：权利未失 + 路径无子 + 王不在将军中 + 经过与到达格均不受攻；
 // - 吃过路兵：仅对方兵刚两格后的下一手内可用（enPassant 目标格一手即失效）；
-// - 兵升变：v1 到底线自动变后；无合法步时被将军=将死（负），否则=逼和（和）；
+// - 兵升变：抵达底线必须升变，升变子（后/车/象/马）由调用方经 makeMove 显式传入，
+//   未传或传非法值 → 拒绝该步（原样返回同一状态）；无合法步时被将军=将死（负），否则=逼和（和）；
 // - 判和：逼和 + 子力不足（K vs K、K+B/N vs K、K+B vs K+B 同色象）。
-// 50 回合、三次重复、升变自选、PGN/FEN 属阶段二，不做。
+// 50 回合、三次重复、PGN/FEN 属阶段二，不做。
 export const SIZE = 8;
 export const CELLS = SIZE * SIZE; // 64
 
@@ -36,6 +37,17 @@ export interface Move {
   from: number;
   to: number;
 }
+
+/** 升变子选择：后 / 车 / 象 / 马（小写字母，仿记谱惯例，区分大小写） */
+export type Promotion = 'q' | 'r' | 'b' | 'n';
+
+/** 升变字母 → 对应棋子编码 [白, 黑] */
+const PROMOTION_PIECE: Record<Promotion, readonly [number, number]> = {
+  q: [W_QUEEN, B_QUEEN],
+  r: [W_ROOK, B_ROOK],
+  b: [W_BISHOP, B_BISHOP],
+  n: [W_KNIGHT, B_KNIGHT],
+};
 
 export interface ChessState {
   /** 棋盘：0 空，其余为棋子编码；下标 idx = r * SIZE + c */
@@ -465,6 +477,19 @@ export function legalTargets(state: ChessState, from: number): number[] {
   );
 }
 
+/**
+ * from→to 是否为需要选择升变子的兵升变步（己方兵合法落至底线）。
+ * UI 在落子前据此弹出升变选择浮层；合法落点中升变步照常显示，落点高亮不受影响。
+ */
+export function needsPromotion(state: ChessState, from: number, to: number): boolean {
+  if (state.status !== 'playing') return false;
+  const piece = state.board[from];
+  if (piece !== W_PAWN && piece !== B_PAWN) return false;
+  if (sideOf(piece) !== state.current) return false;
+  if (!legalTargets(state, from).includes(to)) return false;
+  return rowOf(to) === (sideOf(piece) === 1 ? 0 : 7);
+}
+
 /** player 在该棋盘上的全部合法步（终局判定用） */
 export function allLegalMoves(
   board: Int8Array,
@@ -522,21 +547,37 @@ const ROOK_HOME: Record<string, number> = {
 
 /**
  * 走子 from→to（必须是 current 的合法步，否则原样返回同一状态）。
- * 升变自动变后；走完后轮到对方：无合法步时被将军=将死（负），否则=逼和（和）；
+ * 兵抵达底线的升变步必须显式传入升变子 promotion（'q'/'r'/'b'/'n'），
+ * 未传或传非法值 → 拒绝该步（原样返回同一状态）；非升变步忽略该参数。
+ * 走完后轮到对方：无合法步时被将军=将死（负），否则=逼和（和）；
  * 尚有合法步而子力不足亦判和。
  */
-export function makeMove(state: ChessState, from: number, to: number): ChessState {
+export function makeMove(
+  state: ChessState,
+  from: number,
+  to: number,
+  promotion?: Promotion,
+): ChessState {
   if (state.status !== 'playing') return state;
   if (from < 0 || from >= CELLS || to < 0 || to >= CELLS || from === to) return state;
   const piece = state.board[from];
   if (piece === 0 || sideOf(piece) !== state.current) return state;
   if (!legalTargets(state, from).includes(to)) return state;
 
+  // 升变：兵抵达底线必须显式选择升变子（后/车/象/马），未传或非法 → 拒绝（同引用返回）
+  const promoting =
+    (piece === W_PAWN || piece === B_PAWN) && rowOf(to) === (sideOf(piece) === 1 ? 0 : 7);
+  let promoPiece = 0;
+  if (promoting) {
+    const chosen = promotion === undefined ? undefined : PROMOTION_PIECE[promotion as Promotion];
+    if (!chosen) return state;
+    promoPiece = sideOf(piece) === 1 ? chosen[0] : chosen[1];
+  }
+
   const board = applyMoveBoard(state.board, from, to, state.enPassant);
 
-  // 升变：兵到达底线自动变后（v1 取舍，升变自选列入阶段二）
-  if (piece === W_PAWN && rowOf(to) === 0) board[to] = W_QUEEN;
-  else if (piece === B_PAWN && rowOf(to) === 7) board[to] = B_QUEEN;
+  // 升变：按玩家选择落子
+  if (promoting) board[to] = promoPiece;
 
   // 易位权利更新：王移动收双侧；车移动或车在原位被吃收单侧
   let castling = state.castling;

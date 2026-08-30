@@ -1,13 +1,22 @@
-// 国际象棋游戏页：同屏双人对弈（白先），将军提示与终局弹窗（将死 / 逼和 / 子力不足）
+// 国际象棋游戏页：同屏双人对弈（白先），将军提示、升变自选浮层与终局弹窗（将死 / 逼和 / 子力不足）
 import './chess.css';
 import Board, { sideName } from './Board';
 import { useChess } from './useChess';
+import type { Promotion } from '../engine/chess';
 
 const REASON_TEXT: Record<string, string> = {
   checkmate: '将死',
   stalemate: '逼和：一方无子可动且未被将军',
   insufficient: '子力不足，双方均无法将杀',
 };
+
+/** 升变选项（规格顺序：后/车/象/马），按行棋方取白/黑字形 */
+const PROMOTION_CHOICES: ReadonlyArray<{ piece: Promotion; white: string; black: string; name: string }> = [
+  { piece: 'q', white: '♕', black: '♛', name: '后' },
+  { piece: 'r', white: '♖', black: '♜', name: '车' },
+  { piece: 'b', white: '♗', black: '♝', name: '象' },
+  { piece: 'n', white: '♘', black: '♞', name: '马' },
+];
 
 export default function Game() {
   const { state, dispatch } = useChess();
@@ -71,9 +80,9 @@ export default function Game() {
 
       <p className="rules">
         同屏双人：白方先行。点击己方棋子后，合法落点以圆点标出（可吃之子与吃过路兵带红圈），点击落点即完成走子。
-        兵直进斜吃、起始可走两格、到达底线自动升变为后；王车易位需权利未失、路径无子且不被将军；
-        对方兵刚走两格时可用吃过路兵，机会仅一手。被将军必须应将；无合法步时被将军为将死（负）、
-        否则为逼和（和）；双方仅剩王与少量轻子亦判和。
+        兵直进斜吃、起始可走两格、抵达底线须升变：弹出选择浮层自选后/车/象/马，取消则回到选子前可改走别的步；
+        王车易位需权利未失、路径无子且不被将军；对方兵刚走两格时可用吃过路兵，机会仅一手。
+        被将军必须应将；无合法步时被将军为将死（负）、否则为逼和（和）；双方仅剩王与少量轻子亦判和。
       </p>
 
       {over && (
@@ -90,6 +99,35 @@ export default function Game() {
               </button>
               <button className="btn primary" onClick={() => dispatch({ type: 'reset' })}>
                 再来一局
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {!over && state.pending && (
+        <div className="overlay">
+          <div className="modal c-promo" role="dialog" aria-modal="true" aria-label="选择升变棋子">
+            <div className="emoji">{game.current === 1 ? '♕' : '♛'}</div>
+            <div className="grade">兵升变</div>
+            <p className="detail">{sideName(game.current)} 的兵抵达底线，请选择升变棋子</p>
+            <div className="c-promo-choices">
+              {PROMOTION_CHOICES.map((choice) => (
+                <button
+                  key={choice.piece}
+                  className="btn c-promo-btn"
+                  onClick={() => dispatch({ type: 'promote', piece: choice.piece })}
+                >
+                  <span className={`c-pc ${game.current === 1 ? 'white' : 'black'}`} aria-hidden="true">
+                    {game.current === 1 ? choice.white : choice.black}
+                  </span>
+                  {choice.name}
+                </button>
+              ))}
+            </div>
+            <div className="modal-actions">
+              <button className="btn" onClick={() => dispatch({ type: 'cancelPromotion' })}>
+                取消
               </button>
             </div>
           </div>

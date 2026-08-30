@@ -3,6 +3,8 @@ import { ReversiState, SIZE, legalMoves, type Player } from '../engine/reversi';
 
 interface BoardProps {
   state: ReversiState;
+  /** 锁盘（AI 回合 / AI 思考中）：合法点仍显示提示圆点，但不可点击 */
+  locked?: boolean;
   onPlace: (idx: number) => void;
 }
 
@@ -10,7 +12,7 @@ export function stoneName(p: Player): string {
   return p === 1 ? '黑方' : '白方';
 }
 
-export default function Board({ state, onPlace }: BoardProps) {
+export default function Board({ state, locked = false, onPlace }: BoardProps) {
   const legal = new Set(legalMoves(state));
   const flippedSet = new Set(state.flipped);
   const playable = state.status === 'playing';
@@ -22,7 +24,7 @@ export default function Board({ state, onPlace }: BoardProps) {
       const stone = state.board[i];
       const isLegal = playable && stone === 0 && legal.has(i);
       const isLast = state.lastMove === i;
-      const clickable = playable && isLegal;
+      const clickable = playable && isLegal && !locked;
 
       cells.push(
         <div

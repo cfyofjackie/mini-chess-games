@@ -4,6 +4,8 @@ import { GomokuState, SIZE, Player } from '../engine/gomoku';
 interface BoardProps {
   state: GomokuState;
   onPlace: (idx: number) => void;
+  /** true 时锁盘（AI 回合），仅终局判定之外的锁定场景使用 */
+  locked?: boolean;
 }
 
 export const STAR_POINTS = [
@@ -18,10 +20,10 @@ export function stoneName(p: Player): string {
   return p === 1 ? '黑方' : '白方';
 }
 
-export default function Board({ state, onPlace }: BoardProps) {
+export default function Board({ state, onPlace, locked = false }: BoardProps) {
   const lineSet = new Set(state.line);
   const last = state.history.length > 0 ? state.history[state.history.length - 1] : -1;
-  const playable = state.status === 'playing';
+  const playable = state.status === 'playing' && !locked;
 
   const cells = [];
   for (let r = 0; r < SIZE; r++) {
