@@ -26,6 +26,28 @@ npm run build     # 类型检查 + 产物构建（dist/）
 npm run preview   # 本地预览构建产物
 ```
 
+## 本地游玩（三步打开）
+
+1. 打开一个终端（PowerShell / Git Bash 均可），进入项目目录：
+
+   ```bash
+   cd D:\dev\peg-solitaire
+   ```
+
+2. 启动本地服务（第一次使用前需先执行过一次 `npm install`）：
+
+   ```bash
+   npm run dev
+   ```
+
+3. 看终端里打印的地址，用浏览器打开——默认是 **http://localhost:5173**
+
+- **关闭**：回到终端按 `Ctrl + C`
+- **再次游玩**：重复第 2、3 步即可（`npm install` 整台电脑只需做一次）
+- 命令挂着没关系：终端窗口开着它就一直运行，关了终端它就停了，下次重开
+- 两个模式的区别：`npm run dev` 是日常游玩/开发用的（改动即时生效，无需构建）；`npm run build` + `npm run preview` 是预览"和线上一模一样"的正式版本（改完代码后需先 build）
+- 直接双击 `index.html` 打不开（浏览器对本地文件的模块加载限制），必须走上面的服务方式
+
 ## 项目结构
 
 ```
