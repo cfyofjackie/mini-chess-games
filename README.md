@@ -1,5 +1,7 @@
 # Mini Chess Games · 棋类小游戏合集
 
+**🎮 在线游玩：https://cfyofjackie.github.io/mini-chess-games/**
+
 同一网页里的棋类游戏大厅：大厅选择入口，每种棋独立分包、按需加载。
 
 - **独立钻石**：单人解谜。跳过紧邻的棋子落入空位，被跳过的棋子移除，目标是最后只剩一颗（落在中心即为「天才」）。内置 AI 求解器：随时**提示一步**，或让 AI **自动演示**完整通关路线。
@@ -65,9 +67,10 @@ src/
 
 ## 部署到 GitHub Pages
 
-1. 推送到 GitHub 仓库（建议名 `peg-solitaire`）
-2. 仓库 **Settings → Pages → Source** 选择 **GitHub Actions**
-3. 之后每次 push 到 `main`，工作流会自动跑测试、构建并发布到
-   `https://<你的用户名>.github.io/peg-solitaire/`
+线上地址：**https://cfyofjackie.github.io/mini-chess-games/**
+
+1. 推送到 GitHub 仓库 `cfyofjackie/mini-chess-games`
+2. 仓库 **Settings → Pages → Source** 选择 **GitHub Actions**（已配置）
+3. 之后每次 push 到 `main`，工作流会自动跑测试、构建并发布
 
 构建使用相对路径（`base: './'`），无需按仓库名调整配置。
