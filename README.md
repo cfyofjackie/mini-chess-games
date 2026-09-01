@@ -9,8 +9,6 @@
 
 现已升级为**游戏大厅**结构（hash 路由 + 注册表），更多棋类（五子棋、跳棋）按 [docs/PLATFORM.md](./docs/PLATFORM.md) 的路线接入。
 
-![技术栈](https://img.shields.io/badge/React_18-Vite_5-TypeScript-5b5bd6)
-
 ## 独立钻石玩法
 
 - 点击棋子选中，高亮位置即所有可落空位，点击空位完成跳跃；触屏同样适用
