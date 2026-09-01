@@ -13,10 +13,13 @@
 //   大错拦截卡（重试 = 恢复选子前 / 坚持 = 照走并计数，等待 ≤1.5s 超时放行），
 //   提示阶梯（💡 每按一次升一级，最佳着法由 Worker coachHint 提供，一局三次三级 → 教学局）；
 //   教练请求 id 丢弃过期回复（同 AI 求解既有模式），教练关闭时零额外请求、零 UI 元素。
+// 新手学堂（第十一节第一步）：第三个视图 view: 'lessons'，入口 = 工具栏「学堂」；
+//   关卡运行器在 ui/lessons/（独立 reducer + localStorage 进度），复用 Board 渲染，无 AI 对手。
 import './chess.css';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Board, { sideName } from './Board';
 import Report from './Report';
+import Runner from './lessons/Runner';
 import { buildPositions, listReviews, saveReview, type SavedReview } from './reviewStore';
 import { useChess, type PendingEval } from './useChess';
 import { lastMoveInfo, moveText } from './moveText';
@@ -71,8 +74,8 @@ export default function Game() {
   const [difficulty, setDifficulty] = useState<Difficulty>('medium');
   const [thinking, setThinking] = useState(false);
   const [applying, setApplying] = useState(false); // A1：Worker 已回复，停顿等待落子
-  // 复盘报告 v1：对局 / 报告双视图与分析会话状态
-  const [view, setView] = useState<'play' | 'review'>('play');
+  // 复盘报告 v1：对局 / 报告 / 学堂三视图与分析会话状态
+  const [view, setView] = useState<'play' | 'review' | 'lessons'>('play');
   const [report, setReport] = useState<AnalysisReport | null>(null);
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
   const [positions, setPositions] = useState<ChessState[]>([]); // 报告视图的局面序列（分析时冻结）
@@ -382,6 +385,23 @@ export default function Game() {
     [saved],
   );
 
+  if (view === 'lessons') {
+    return (
+      <div className="app">
+        <nav className="topnav">
+          <a href="#/">← 游戏大厅</a>
+        </nav>
+
+        <header className="header">
+          <h1>国际象棋</h1>
+          <p className="subtitle">Chess · 新手学堂 · 闯关式互动教学，从认识棋盘到完成将死</p>
+        </header>
+
+        <Runner onBack={() => setView('play')} />
+      </div>
+    );
+  }
+
   if (view === 'review') {
     return (
       <div className="app">
@@ -536,6 +556,9 @@ export default function Game() {
         >
           复盘本局
         </button>
+        <button className="btn" onClick={() => setView('lessons')}>
+          📚 学堂
+        </button>
       </div>
 
       <p className="rules">
@@ -549,6 +572,8 @@ export default function Game() {
         大错着法会被拦截（可选重试或坚持），「💡 提示」每按一次多透露一点（文字 → 高亮棋子 → 显示着法），
         一局用满三次三级提示即标记为教学局。对局中或结束后点「复盘本局」，
         AI 在本地逐局面复评每一手，给出 🟢⚪🟡🔴 评级、原因与评估曲线，最近 10 局可随时重看。
+        点「📚 学堂」进入新手学堂：8 个互动关卡从认识棋盘一路学到完成将死，
+        每关必须亲手完成目标才能过关，通关进度保存在本地。
       </p>
 
       {state.toast && <div className="toast">{toastText(state.toast)}</div>}

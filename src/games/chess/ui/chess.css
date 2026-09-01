@@ -694,8 +694,178 @@
   animation: c-danger 1s ease-in-out infinite;
 }
 
+/* ---------- 新手学堂（第十一节）：关卡卡片 / 阶段文案区 / 完成态 ---------- */
+
+.c-ls {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  width: min(96vw, 720px);
+  margin: 0 auto;
+}
+
+.c-ls-top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.c-ls-title {
+  margin: 0 auto 0 4px;
+  font-size: 20px;
+}
+
+.c-ls-lead {
+  margin: 0 auto;
+  max-width: 560px;
+  text-align: center;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.8;
+}
+
+/* 关卡卡片网格：卡内纵向排布（序号徽标 / 标题 / 简介 / 任务数） */
+.c-ls-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap: 12px;
+}
+
+.c-ls-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  text-align: left;
+  font-family: inherit;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 16px;
+  cursor: pointer;
+  box-shadow: 0 1px 2px rgba(31, 36, 48, 0.06);
+  transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.c-ls-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--accent);
+  box-shadow: 0 8px 24px rgba(31, 36, 48, 0.1);
+}
+
+.c-ls-card.done {
+  border-color: rgba(46, 125, 67, 0.45);
+}
+
+/* 序号徽标：完成态换绿色对勾 */
+.c-ls-no {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.c-ls-no.ok {
+  background: #2e7d43;
+}
+
+.c-ls-name {
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.c-ls-desc {
+  color: var(--muted);
+  font-size: 12.5px;
+  line-height: 1.6;
+}
+
+.c-ls-meta {
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+/* 阶段文案区：说明（可换行）+ 🎯 任务提示 */
+.c-ls-panel {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 12px 14px;
+  box-shadow: 0 1px 2px rgba(31, 36, 48, 0.06);
+}
+
+.c-ls-brief {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.8;
+  white-space: pre-line;
+}
+
+.c-ls-task {
+  margin: 8px 0 0;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--accent);
+}
+
+/* 完成态（✅ 完成语 + 下一步按钮）；warn = 逼和等未达成提醒 */
+.c-ls-done {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: rgba(46, 125, 67, 0.1);
+  border: 1px solid rgba(46, 125, 67, 0.35);
+  border-radius: 14px;
+  padding: 12px 14px;
+  animation: c-cardin 0.2s ease-out;
+}
+
+.c-ls-done.warn {
+  background: rgba(217, 154, 38, 0.12);
+  border-color: rgba(217, 154, 38, 0.45);
+}
+
+.c-ls-done-text {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.7;
+}
+
+.c-ls-done-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.c-ls-hint {
+  margin: 0 auto;
+  max-width: 460px;
+  text-align: center;
+  color: var(--muted);
+  font-size: 12.5px;
+  line-height: 1.8;
+}
+
 /* ---------- 移动端 ---------- */
 @media (max-width: 480px) {
+  /* 关卡卡片：auto-fill 在窄屏已自然收成单列，这里只收内边距 */
+  .c-ls-card {
+    padding: 12px;
+  }
+
+  .c-ls-title {
+    font-size: 17px;
+  }
+
   .c-board {
     border-radius: 10px;
   }
