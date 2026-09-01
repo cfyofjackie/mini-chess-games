@@ -64,6 +64,13 @@ export const GAMES: GameModule[] = [
     icon: '👑',
     component: lazy(() => import('./checkers')),
   },
+  {
+    id: 'go',
+    name: '围棋',
+    description: '9 路中国规则，提子围空（同屏双人）',
+    icon: '⚫',
+    component: lazy(() => import('./go')),
+  },
 ];
 
 export function getGame(id: string): GameModule | null {

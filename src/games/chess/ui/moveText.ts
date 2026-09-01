@@ -3,6 +3,8 @@
 //   升变步显示升变子名，如 "白兵 e7-e8=后"。
 // - lastMoveInfo(state)：从"走子后的状态"反推最近一手的结构化信息（走子前快照取棋子、
 //   判吃子含吃过路兵、升变子反查），供 Game 状态条 chip 与 Board 被吃子幽灵动画共用。
+// - capturedOfMove(before, from, to)：单手被吃子提取（lastMoveInfo 的公共内核，
+//   规格书第十二节抽出），吃子托盘 ui/captured.ts 复用同一判定。
 import {
   B_BISHOP,
   B_KING,
@@ -89,6 +91,29 @@ export function moveText(move: MoveInfo, color: Player): string {
 }
 
 /**
+ * 从"走子前快照 + from/to"提取该手的被吃子；无吃子返回 null。
+ * 判定：落点原有敌子，或兵斜进至过路兵目标格（吃过路兵，被吃兵在旁格）。
+ * lastMoveInfo（上一手 chip / 幽灵动画）与吃子托盘（ui/captured.ts）共用，
+ * 保证三处对"什么算吃子、吃的是什么"的判定永远一致。
+ */
+export function capturedOfMove(before: ChessState, from: number, to: number): CapturedInfo | null {
+  if (from < 0 || to < 0) return null;
+  const piece = before.board[from];
+  if (piece === 0) return null;
+  const isPawn = piece === W_PAWN || piece === B_PAWN;
+  // 吃过路兵：兵斜向进至对方刚两格所留的目标格（直进至同格不是吃子）
+  const epCapture = isPawn && before.enPassant === to && from % 8 !== to % 8;
+  const landed = before.board[to];
+  if (landed !== 0) return { idx: to, piece: landed };
+  if (epCapture) {
+    // 被吃兵位于走子兵原行、目标列
+    const idx = Math.floor(from / 8) * 8 + (to % 8);
+    if (before.board[idx] !== 0) return { idx, piece: before.board[idx] };
+  }
+  return null;
+}
+
+/**
  * 从走子后的状态提取最近一手信息；尚无走子（或快照不一致）返回 null。
  * - 走动的棋子取自走子前快照 history[history.length - 1]；
  * - 吃子：落点原有敌子，或兵斜进至过路兵目标格（吃过路兵，被吃兵在旁格）；
@@ -101,23 +126,11 @@ export function lastMoveInfo(state: ChessState): LastMoveInfo | null {
   const piece = prev.board[lastFrom];
   if (piece === 0) return null;
 
-  const isPawn = piece === W_PAWN || piece === B_PAWN;
-  // 吃过路兵：兵斜向进至对方刚两格所留的目标格（直进至同格不是吃子）
-  const epCapture =
-    isPawn && prev.enPassant === lastTo && lastFrom % 8 !== lastTo % 8;
-  const landedPiece = prev.board[lastTo];
-
-  let captured: CapturedInfo | null = null;
-  if (landedPiece !== 0) {
-    captured = { idx: lastTo, piece: landedPiece };
-  } else if (epCapture) {
-    // 被吃兵位于走子兵原行、目标列
-    const idx = Math.floor(lastFrom / 8) * 8 + (lastTo % 8);
-    if (prev.board[idx] !== 0) captured = { idx, piece: prev.board[idx] };
-  }
+  const captured = capturedOfMove(prev, lastFrom, lastTo);
 
   // 升变：兵抵达己方底线（白 row 0 / 黑 row 7），升变子即走子后落点上的棋子
   let promotion: Promotion | undefined;
+  const isPawn = piece === W_PAWN || piece === B_PAWN;
   const promoRow = sideOf(piece) === 1 ? lastTo < 8 : lastTo >= 56;
   if (isPawn && promoRow) promotion = PROMO_LETTER[state.board[lastTo]];
 
@@ -125,7 +138,7 @@ export function lastMoveInfo(state: ChessState): LastMoveInfo | null {
     from: lastFrom,
     to: lastTo,
     piece,
-    capture: landedPiece !== 0 || epCapture,
+    capture: captured !== null,
     promotion,
     captured,
   };

@@ -1,6 +1,7 @@
 /* 国际象棋专属：明暗格棋盘（浅米 / 深灰绿护眼配色）、Unicode 实心棋子（白实心白+深描边 /
    黑实心近黑+浅描边，B1）、选中 / 合法落点 / 可吃标记 / 最后一手 / 被将军王格高亮、
-   落子滑入（A2）与被吃子幽灵淡出（A3）、王邻格解释徽标（第九节 .c-badge-*）。
+   落子滑入（A2）与被吃子幽灵淡出（A3）、王邻格解释徽标（第九节 .c-badge-*）、
+   棋盘坐标标注与吃子托盘（第十二节 .c-board-wrap / .c-coord-* / .c-tray*）。
    全局样式见 src/styles.css */
 
 .c-board {
@@ -249,6 +250,96 @@
   }
 }
 
+/* ---------- 第十二节：棋盘坐标标注 + 吃子托盘 ---------- */
+
+/* 棋盘区：上（黑方吃掉的白子托盘）— 棋盘 — 下（白方吃掉的黑子托盘）纵向排布 */
+.c-board-zone {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* 棋盘外框：左侧留行标条、下侧留列标条；棋盘总宽不变（格等比微收），棋盘格不被挤压 */
+.c-board-wrap {
+  position: relative;
+  width: min(92vw, 480px);
+  margin: 0 auto;
+  --c-coord: clamp(13px, 3.6vw, 18px);
+  padding: 0 0 var(--c-coord) var(--c-coord);
+}
+
+.c-board-wrap .c-board {
+  width: 100%;
+  margin: 0;
+}
+
+/* 坐标标签：半透明小字，绝对定位在内衬条内均分 8 格，不拦截点击 */
+.c-coord {
+  position: absolute;
+  display: flex;
+  pointer-events: none;
+  user-select: none;
+  color: var(--muted);
+  opacity: 0.8;
+  font-size: clamp(9px, 2.4vw, 12px);
+  font-weight: 600;
+}
+
+.c-coord span {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* 左侧行标（上 8 下 1）：高度与棋盘对齐 */
+.c-coord-ranks {
+  left: 0;
+  top: 0;
+  bottom: var(--c-coord);
+  width: var(--c-coord);
+  flex-direction: column;
+}
+
+/* 下侧列标（左 a 右 h） */
+.c-coord-files {
+  left: var(--c-coord);
+  right: 0;
+  bottom: 0;
+  height: var(--c-coord);
+}
+
+/* 吃子托盘：棋盘上下各一排，与棋盘同宽；固定最小高度，空托盘不塌陷、首子出现不跳动 */
+.c-tray {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  align-content: flex-start;
+  gap: 0 10px;
+  width: min(92vw, 480px);
+  margin: 0 auto;
+  min-height: 24px;
+  padding: 2px 8px;
+}
+
+.c-tray-item {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 1px;
+}
+
+.c-tray .c-pc {
+  font-size: clamp(14px, 3.8vw, 19px);
+  line-height: 1;
+  -webkit-text-stroke-width: 1px; /* 小字号下描边收细（同 .c-pc.mini） */
+}
+
+.c-tray-n {
+  font-size: 11px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
 /* ---------- 阶段二：AI 对手 ---------- */
 
 /* 难度分段选择（工具栏内） */
@@ -426,7 +517,11 @@
   min-width: 0;
 }
 
-.c-rv-grid .c-board {
+/* 复盘视图：棋盘区 / 外框 / 托盘随左列宽度拉伸（托盘与坐标随之，与对局观感一致） */
+.c-rv-grid .c-board-zone,
+.c-rv-grid .c-board-wrap,
+.c-rv-grid .c-board,
+.c-rv-grid .c-tray {
   width: 100%;
 }
 

@@ -1,0 +1,327 @@
+/* 围棋专属：棋盘、棋子、死子标记与劫禁点。全局样式见 src/styles.css */
+
+.go-board {
+  display: grid;
+  grid-template-columns: repeat(9, 1fr);
+  grid-template-rows: repeat(9, 1fr);
+  width: min(92vw, 520px);
+  aspect-ratio: 1;
+  margin: 0 auto;
+  padding: 26px;
+  border-radius: 16px;
+  background: radial-gradient(120% 90% at 20% 8%, #f2ddb4 0%, #e7c795 45%, #d9b478 100%);
+  box-shadow: 0 10px 40px rgba(31, 36, 48, 0.12);
+}
+
+/* 交叉点：横竖两条线穿过中心，连续铺成棋盘线 */
+.go-cell {
+  position: relative;
+}
+
+.go-cell::before,
+.go-cell::after {
+  content: '';
+  position: absolute;
+  background: rgba(70, 45, 10, 0.75);
+}
+
+.go-cell::before {
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 1px;
+  transform: translateY(-0.5px);
+}
+
+.go-cell::after {
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 1px;
+  transform: translateX(-0.5px);
+}
+
+/* 边线半格截断：让最外圈线停在交叉点上 */
+.go-cell.el::before {
+  left: 50%;
+}
+
+.go-cell.er::before {
+  right: 50%;
+}
+
+.go-cell.et::after {
+  top: 50%;
+}
+
+.go-cell.eb::after {
+  bottom: 50%;
+}
+
+/* 星位（四星 + 天元，位置来自引擎 STAR_POINTS） */
+.go-cell.star {
+  background-image: radial-gradient(circle, rgba(70, 45, 10, 0.85) 0 2px, transparent 2.6px);
+}
+
+.go-cell.clickable {
+  cursor: pointer;
+}
+
+/* 悬停落子预览（标记阶段悬停棋子高亮） */
+.go-cell.clickable:hover {
+  background-image: radial-gradient(circle, rgba(70, 70, 214, 0.32) 0 36%, transparent 40%);
+}
+
+/* ---------- 棋子 ---------- */
+
+.go-stone {
+  position: absolute;
+  inset: 8%;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2;
+}
+
+.go-stone.black {
+  background: radial-gradient(circle at 34% 30%, #565664, #1c1c26 60%, #000);
+  box-shadow:
+    0 2px 5px rgba(0, 0, 0, 0.35),
+    inset 0 1px 2px rgba(255, 255, 255, 0.25);
+}
+
+.go-stone.white {
+  background: radial-gradient(circle at 34% 30%, #ffffff, #e7e8f0 55%, #c9cbd8);
+  box-shadow:
+    0 2px 5px rgba(31, 36, 48, 0.25),
+    inset 0 0 0 1px rgba(31, 36, 48, 0.08);
+}
+
+/* 最后一手标记：棋子中心小圆点 */
+.go-stone.last::after {
+  content: '';
+  width: 26%;
+  height: 26%;
+  border-radius: 50%;
+  background: var(--accent);
+  opacity: 0.9;
+}
+
+/* 死子标记：半透明 + 红叉（标记模式点击整群切换） */
+.go-stone.dead {
+  opacity: 0.5;
+}
+
+.go-stone.dead::before {
+  content: '✕';
+  font-size: 58%;
+  font-weight: 700;
+  color: #e5484d;
+}
+
+/* 劫禁点：虚线圆圈提示"此点不得立即回提" */
+.go-ko {
+  position: absolute;
+  inset: 30%;
+  border: 2px dashed rgba(70, 70, 214, 0.8);
+  border-radius: 50%;
+  z-index: 1;
+  pointer-events: none;
+}
+
+/* 状态条里的迷你棋子 */
+.go-stone.mini {
+  position: static;
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  vertical-align: -1px;
+  margin-right: 2px;
+}
+
+/* ---------- 学堂（chess.md 第十三节）：关卡卡片 / 阶段文案区 / 完成态 ---------- */
+/* 与国象学堂（chess.css 的 c-ls-*）同一交互形态；因不引用 chess 样式，这里以 g-ls-* 平行定义 */
+
+.g-ls {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  width: min(96vw, 720px);
+  margin: 0 auto;
+}
+
+.g-ls-top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.g-ls-title {
+  margin: 0 auto 0 4px;
+  font-size: 20px;
+}
+
+.g-ls-lead {
+  margin: 0 auto;
+  max-width: 560px;
+  text-align: center;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.8;
+}
+
+/* 关卡卡片网格：卡内纵向排布（序号徽标 / 标题 / 简介 / 任务数） */
+.g-ls-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap: 12px;
+}
+
+.g-ls-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  text-align: left;
+  font-family: inherit;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 16px;
+  cursor: pointer;
+  box-shadow: 0 1px 2px rgba(31, 36, 48, 0.06);
+  transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.g-ls-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--accent);
+  box-shadow: 0 8px 24px rgba(31, 36, 48, 0.1);
+}
+
+.g-ls-card.done {
+  border-color: rgba(46, 125, 67, 0.45);
+}
+
+/* 序号徽标：完成态换绿色对勾 */
+.g-ls-no {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.g-ls-no.ok {
+  background: #2e7d43;
+}
+
+.g-ls-name {
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.g-ls-desc {
+  color: var(--muted);
+  font-size: 12.5px;
+  line-height: 1.6;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.g-ls-meta {
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+/* 阶段文案区：说明（可换行）+ 🎯 任务提示 */
+.g-ls-panel {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 12px 14px;
+  box-shadow: 0 1px 2px rgba(31, 36, 48, 0.06);
+}
+
+.g-ls-brief {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.8;
+  white-space: pre-line;
+}
+
+.g-ls-task {
+  margin: 8px 0 0;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--accent);
+}
+
+/* 完成态（✅ 完成语 + 下一步按钮） */
+.g-ls-done {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: rgba(46, 125, 67, 0.1);
+  border: 1px solid rgba(46, 125, 67, 0.35);
+  border-radius: 14px;
+  padding: 12px 14px;
+  animation: g-cardin 0.2s ease-out;
+}
+
+.g-ls-done-text {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.7;
+}
+
+.g-ls-done-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.g-ls-hint {
+  margin: 0 auto;
+  max-width: 460px;
+  text-align: center;
+  color: var(--muted);
+  font-size: 12.5px;
+  line-height: 1.8;
+}
+
+@keyframes g-cardin {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ---------- 移动端 ---------- */
+@media (max-width: 480px) {
+  .go-board {
+    padding: 14px;
+    border-radius: 12px;
+  }
+
+  /* 学堂卡片：auto-fill 在窄屏已自然收成单列，这里只收内边距 */
+  .g-ls-card {
+    padding: 12px;
+  }
+}

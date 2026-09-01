@@ -2,6 +2,9 @@
 // 选中 / 合法落点（空格圆点、可吃子含吃过路兵红环）/ 最后一手 / 被将军王格均有高亮标记；
 // A2 落子滑动：落点棋子带 --dx/--dy 位移的滑入动画（人类与 AI 落子共用）；
 // A3 被吃淡出：被吃棋子以幽灵元素在原格缩小淡出；两者均以着法序号作 key，换手即重触发。
+// 第十二节坐标标注：外框左侧 8–1 行标、下侧 a–h 列标（白方视角，半透明小字不挤压棋盘格）；
+// 第十二节吃子托盘：棋盘上（黑方吃掉的白子）/下（白方吃掉的黑子）各一排，
+//   数据由 ui/captured.ts 从 history 快照提取（按被吃顺序），按价值降序 ×N 显示，随走子/悔棋实时更新。
 import type { CSSProperties } from 'react';
 import {
   B_BISHOP,
@@ -23,6 +26,7 @@ import {
   type Player,
 } from '../engine/chess';
 import { lastMoveInfo } from './moveText';
+import { capturedPieces, trayGroups, type TrayGroup } from './captured';
 import { kingNeighborReasons, type NeighborReason } from './hints';
 
 /**
@@ -67,6 +71,11 @@ const BADGE_TEXT: Record<NeighborReason, string> = {
   defended: '守',
 };
 
+/** 第十二节坐标标注（白方视角）：下边 a–h 列标（左→右） */
+const FILE_LABELS = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
+/** 第十二节坐标标注（白方视角）：左边 8–1 行标（上→下，row 0 为第 8 横线） */
+const RANK_LABELS = ['8', '7', '6', '5', '4', '3', '2', '1'];
+
 interface BoardProps {
   state: ChessState;
   /** 当前选中格 idx，-1 为未选中 */
@@ -78,6 +87,25 @@ interface BoardProps {
 
 export function sideName(p: Player): string {
   return p === 1 ? '白方' : '黑方';
+}
+
+/** 第十二节吃子托盘：一排被吃棋子（价值降序，同型多子 ×N）；由 state 派生，走子/悔棋/复盘跳转自动更新 */
+function Tray({ groups, label }: { groups: TrayGroup[]; label: string }) {
+  return (
+    <div className="c-tray" role="img" aria-label={label}>
+      {groups.map((g) => (
+        <span key={g.piece} className="c-tray-item">
+          <span
+            className={`c-pc ${sideOf(g.piece) === 1 ? 'white' : 'black'}`}
+            aria-hidden="true"
+          >
+            {GLYPHS[g.piece]}
+          </span>
+          {g.count > 1 && <span className="c-tray-n">×{g.count}</span>}
+        </span>
+      ))}
+    </div>
+  );
 }
 
 export default function Board({ state, selected, onTap, hint }: BoardProps) {
@@ -179,5 +207,27 @@ export default function Board({ state, selected, onTap, hint }: BoardProps) {
     }
   }
 
-  return <div className="c-board">{cells}</div>;
+  // 第十二节吃子托盘：上排 = 黑方吃掉的白子，下排 = 白方吃掉的黑子；
+  // 从 history 快照按被吃顺序提取（captured.ts），按价值降序 ×N 显示
+  const captures = capturedPieces(state);
+
+  return (
+    <div className="c-board-zone">
+      <Tray groups={trayGroups(captures.byBlack)} label="黑方吃掉的白子" />
+      <div className="c-board-wrap">
+        <div className="c-coord c-coord-ranks" aria-hidden="true">
+          {RANK_LABELS.map((r) => (
+            <span key={r}>{r}</span>
+          ))}
+        </div>
+        <div className="c-board">{cells}</div>
+        <div className="c-coord c-coord-files" aria-hidden="true">
+          {FILE_LABELS.map((f) => (
+            <span key={f}>{f}</span>
+          ))}
+        </div>
+      </div>
+      <Tray groups={trayGroups(captures.byWhite)} label="白方吃掉的黑子" />
+    </div>
+  );
 }
