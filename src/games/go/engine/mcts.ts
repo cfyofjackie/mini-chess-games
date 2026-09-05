@@ -27,6 +27,7 @@ import {
   opponent,
 } from './go';
 import { chooseMove as heuristicChooseMove, isOwnEyeShape, type AiResult } from './ai';
+import { place as enginePlace, SIZE as BOARD_SIZE } from './go';
 
 // ---------------------------------------------------------------- 对外类型与常量
 
@@ -711,84 +712,52 @@ export function solveMcts(state: GoState, level: MctsLevel, opts: MctsOptions = 
 export function chooseAiMove(state: GoState, difficulty: Difficulty, opts: MctsOptions = {}): AiResult {
   if (state.status !== 'playing') return { move: -1 };
   if (difficulty === 'easy') return heuristicChooseMove(state);
+  // 战术硬规则（机器无关的确定性）：存在提子着法时必提——选提子数最多者，同数取 idx 最小。
+  // 原因：MCTS 结果受机器速度影响（墙钟兜底触发时模拟数不同），确定性战术必须绕过统计搜索。
+  const cap = bestCaptureMove(state);
+  if (cap >= 0) return { move: cap };
   return { move: solveMcts(state, difficulty, opts).move };
 }
 
-// ---------------------------------------------------------------- 测试辅助（快走 ⇄ 引擎一致性由 mcts.test.ts parity 断言守护）
-
-/** TEMP DIAG: 从给定局面跑 n 局快走，返回"current 方"平均胜率（诊断用，跑完删除） */
-export function diagWinrate(
-  board: Int8Array,
-  current: Player,
-  koPoint: number,
-  n: number,
-  weighted: boolean,
-  seed: number,
-): number {
-  RAND = mulberry32(seed);
-  let sum = 0;
-  for (let i = 0; i < n; i++) {
-    B.set(board);
-    TO_PLAY = current;
-    KO = koPoint;
-    PASSES = 0;
-    sum += playout(weighted);
-  }
-  return sum / n;
-}
-
-/** TEMP DIAG: 快走统计（黑均值 / 黑胜率 / 指定点存活率 / 命中步数上限率），诊断用，跑完删除 */
-export function diagStats(
-  board: Int8Array,
-  current: Player,
-  koPoint: number,
-  n: number,
-  weighted: boolean,
-  seed: number,
-  watchIdx: number,
-): { meanBlack: number; blackWr: number; watchAlive: number; capped: number; meanSteps: number } {
-  RAND = mulberry32(seed);
-  let sum = 0;
-  let wins = 0;
-  let alive = 0;
-  let capped = 0;
-  let stepsSum = 0;
-  const snapshot = board.slice();
-  for (let i = 0; i < n; i++) {
-    B.set(board);
-    TO_PLAY = current;
-    KO = koPoint;
-    PASSES = 0;
-    const perspective = TO_PLAY;
-    let steps = 0;
-    while (PASSES < 2 && steps < PLAYOUT_STEP_CAP) {
-      const mv = weighted ? weightedMove(TO_PLAY) : uniformMove(TO_PLAY);
-      if (mv < 0) {
-        PASSES++;
-        KO = -1;
-      } else {
-        fastApply(mv, TO_PLAY);
-        PASSES = 0;
-      }
-      TO_PLAY = opponent(TO_PLAY);
-      steps++;
+/** 提子覆盖层：枚举合法落点，找提子数最多的着法；无提子返回 -1。确定性、机器无关。 */
+function bestCaptureMove(state: GoState): number {
+  let best = -1;
+  let bestCount = 0;
+  for (let p = 0; p < BOARD_SIZE * BOARD_SIZE; p++) {
+    if (state.board[p] !== 0) continue;
+    const next = enginePlace(state, p);
+    if (next === state) continue; // 非法（劫禁/自杀）
+    const captured = state.current === 1
+      ? countColor(state.board) - countColor(next.board) - 0 // 黑落子：减去黑方新增
+      : 0;
+    void captured;
+    // 直接按对方棋子减少量计提子数
+    const oppBefore = countOpp(state.board, state.current);
+    const oppAfter = countOpp(next.board, state.current);
+    const gained = oppBefore - oppAfter;
+    if (gained > bestCount) {
+      bestCount = gained;
+      best = p;
     }
-    if (steps >= PLAYOUT_STEP_CAP) capped++;
-    stepsSum += steps;
-    if (B[watchIdx] === snapshot[watchIdx] && snapshot[watchIdx] !== 0) alive++;
-    const black = scoreBlackPerspective();
-    const v = perspective === 1 ? black : 1 - black;
-    sum += black;
-    if (v >= 0.5) wins++;
   }
-  return {
-    meanBlack: sum / n,
-    blackWr: wins / n,
-    watchAlive: alive / n,
-    capped: capped / n,
-    meanSteps: stepsSum / n,
-  };
+  return best;
 }
+
+function countColor(board: Int8Array): number {
+  let n = 0;
+  for (let i = 0; i < board.length; i++) if (board[i] !== 0) n++;
+  return n;
+}
+
+function countOpp(board: Int8Array, me: Player): number {
+  let n = 0;
+  for (let i = 0; i < board.length; i++) {
+    if (board[i] !== 0 && board[i] !== me) n++;
+  }
+  return n;
+}
+
+// ---------------------------------------------------------------- 测试辅助（快走 ⇄ 引擎一致性由 mcts.test.ts parity 断言守护）
 
 /** 快走合法点生成器（与引擎 legalMoves 同语义，升序返回）。仅测试 / 诊断用。 */
 export function fastLegal(board: Int8Array, current: Player, koPoint: number): number[] {
