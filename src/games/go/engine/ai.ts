@@ -77,10 +77,16 @@ function hasStoneNear2(board: Int8Array, idx: number): boolean {
   return false;
 }
 
-/** 保守眼形判定：空点四邻（界内）全为己色即视为眼/腹地，落之自损 */
-function isOwnEyeShape(board: Int8Array, idx: number, me: Player): boolean {
+/** 保守眼形判定：空点四邻（界内）全为己色即视为眼/腹地，落之自损。
+ *  导出供 MCTS 快走策略复用（docs/games/go.md 第三节A：排除填真眼），语义不得随意更改。
+ *  实现为显式循环（MCTS 快走每回合逐候选调用，避免闭包分配）。 */
+export function isOwnEyeShape(board: Int8Array, idx: number, me: Player): boolean {
   const ns = NEIGH4[idx];
-  return ns.length > 0 && ns.every((n) => board[n] === me);
+  if (ns.length === 0) return false;
+  for (let k = 0; k < ns.length; k++) {
+    if (board[ns[k]] !== me) return false;
+  }
+  return true;
 }
 
 // ---------------------------------------------------------------- 单着启发分
