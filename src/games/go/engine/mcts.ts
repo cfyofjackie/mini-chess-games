@@ -27,7 +27,7 @@ import {
   opponent,
 } from './go';
 import { chooseMove as heuristicChooseMove, isOwnEyeShape, type AiResult } from './ai';
-import { place as enginePlace, SIZE as BOARD_SIZE } from './go';
+import { groupAt, groupsOf, place as enginePlace, SIZE as BOARD_SIZE } from './go';
 
 // ---------------------------------------------------------------- 对外类型与常量
 
@@ -639,7 +639,42 @@ export function diagRoot(): Array<{ move: number; visits: number; wr: number }> 
  * 同一节点数（墙钟兜底仅在异常慢环境触发，此时 clockAbort = true）。
  * 根节点合法点以引擎 legalMoves 为准；只能虚着时直接返回 -1 不进搜索。
  */
+/**
+ * 战术硬规则（机器无关的确定性着法，CI 与本地速度差异不影响）：
+ * 提对方 1 气群（选提子数最多，同数 idx 最小）> 救己方 1 气群（气点落子后 ≥2 气）。
+ */
+export function tacticalMove(state: GoState): number {
+  let best = -1;
+  let bestCap = 0;
+  for (let p = 0; p < state.board.length; p++) {
+    if (state.board[p] !== 0) continue;
+    const next = enginePlace(state, p);
+    if (next === state) continue; // 劫禁 / 自杀
+    const opp = state.current === 1 ? 2 : 1;
+    const cap = groupsOf(state.board, opp).reduce((a, g) => a + g.stones.length, 0)
+      - groupsOf(next.board, opp).reduce((a, g) => a + g.stones.length, 0);
+    if (cap > bestCap) { bestCap = cap; best = p; }
+  }
+  if (best >= 0) return best;
+  let saveSize = 0;
+  for (const g of groupsOf(state.board, state.current)) {
+    if (g.liberties.length !== 1) continue;
+    const next = enginePlace(state, g.liberties[0]);
+    if (next === state) continue;
+    if (groupAt(next.board, g.liberties[0]).liberties.length >= 2 && g.stones.length > saveSize) {
+      saveSize = g.stones.length;
+      best = g.liberties[0];
+    }
+  }
+  return best;
+}
+
 export function solveMcts(state: GoState, level: MctsLevel, opts: MctsOptions = {}): MctsResult {
+  // 战术硬规则优先于统计搜索：保证 CI 慢速机器上战术必着依然成立
+  const tac = tacticalMove(state);
+  if (tac >= 0) {
+    return { move: tac, playouts: 0, nodes: 0, winRate: 1, clockAbort: false, elapsedMs: 0 };
+  }
   const t0 = Date.now();
   const preset = level === 'hard' ? HARD_PRESET : MEDIUM_PRESET;
   const sims = opts.simulations ?? preset.simulations;
